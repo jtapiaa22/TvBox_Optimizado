@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.jgx.launcher">
+
+    <uses-sdk android:minSdkVersion="25" android:targetSdkVersion="25" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+
+    <application
+        android:label="JGX Launcher"
+        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+        android:hardwareAccelerated="true">
+        <activity
+            android:name=".Launcher"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
