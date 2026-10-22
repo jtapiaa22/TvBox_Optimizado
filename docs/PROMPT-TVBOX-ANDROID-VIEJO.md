@@ -1,4 +1,4 @@
-# Prompt: limpiar un TV box con Android viejo y ponerle el launcher estilo Apple TV
+﻿# Prompt: limpiar un TV box con Android viejo y ponerle el launcher estilo Apple TV
 
 Úsalo en Claude Code (o similar con acceso a shell) desde un PC con Windows en la misma red Wi-Fi/LAN que la
 caja, con este repositorio disponible (`tv-launcher/`, `docs/`). Probado en una MXQ Pro 5G (Rockchip rk322x,
@@ -38,8 +38,9 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
 - En la MXQ Pro 5G se desactivó: `com.adups.fota` (telemetría Adups), `com.rockchip.devicetest`,
   `com.example.txczdevicetest`, `com.DeviceTest`, `com.cghs.stresstest`, `com.android.music`,
   `com.android.calculator2`, `com.android.htmlviewer`, `com.android.printspooler`,
-  `com.android.wallpaper.livepicker`. Se dejaron: OTA Rockchip, Miracast, navegadores, explorador, LED.
+  `com.android.wallpaper.livepicker`, `com.android.dreams.basic`, TalkBack, voz Pico y los respaldos/asistentes de Google. Tras preguntarme, tambien navegadores, explorador de archivos y MediaCenter. Se dejaron: OTA Rockchip, Miracast, LED y Button Mapper. Lista completa en `devices/mxq-pro-5g/README.md`.
   Para otra caja, decide con `dumpsys package <pkg>`; **no abras** apps de fábrica/test para "ver qué hacen".
+- **Chrome y WebView:** en Android 7 Chrome suele hacer de WebView si el de Google esta desactivado (aqui venia asi). Antes de desactivar Chrome, pidele al usuario que abra sus apps y confirme que nada sale en blanco; si falla, `pm enable com.android.chrome`.
 - Nunca desactives: `android`, `com.android.systemui`, `com.android.settings`, `com.android.tv.settings`,
   `com.android.providers.*` (salvo los de calendario/contactos), `com.android.shell`, instalador de paquetes,
   Play Store/Services, teclado, servicios de remoto/Bluetooth, TV/HDMI/entradas.
@@ -104,3 +105,4 @@ durante las pruebas): prueba la navegación con el foco o con apps inocuas (Ajus
 5. La ventana mide menos que la pantalla (barras del sistema): no asumir 720 de alto.
 6. En PowerShell, los avisos de las herramientas por stderr se ven como errores; revisar códigos de salida.
 7. `pm clear com.jgx.launcher` borra dock/recientes/ocultas (el Home preferido se conserva).
+
