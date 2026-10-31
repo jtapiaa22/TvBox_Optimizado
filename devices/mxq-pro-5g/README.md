@@ -54,6 +54,9 @@ desarrollador → desactivar Depuración USB y reiniciar. Comprobar que el puert
   calcula la RAM libre como `MemFree + Inactive(file)` y no muestra total.
 - eMMC de 8 GB (7.3 GiB), 14 particiones Rockchip estándar (uboot, trust, misc, baseparamer, resource, kernel,
   boot, recovery, backup, cache, metadata, kpanic, system, userdata).
+- Placa: serigrafía **TXCZ-RK3229-MXQ-V2.2** (leída de una foto de la placa; coincide con el paquete de fábrica
+  `com.example.txczdevicetest`). El chip Wi-Fi impreso es **SV6051P**. No dice "R329Q": ese nombre aparece en
+  listados de ROMs de terceros, pero no está confirmado que sea esta placa.
 - Wi-Fi `ssv6051` (SSV6051, 2.4 GHz según lo que se sabe del chip; el "5G" del nombre sería marketing). Enlace
   típico de 57-72 Mbps.
 - Firmware genérico `rk322x_box-userdebug 7.1.2 NHG47K eng.ROCKCHIP.20200316` con `test-keys`. `adb root`
