@@ -10,6 +10,23 @@ desarrollador → activa Depuración USB (y Depuración ADB/red si existe). Deja
 
 ---
 
+## Reglas de trabajo (leer primero)
+1. **Primero chequear, después hacer.** Antes de cambiar nada (en la caja, en archivos o en el repositorio),
+   comprueba el estado actual y que lo que vas a tocar existe: el paquete está instalado, la cadena que
+   vas a reemplazar aparece una vez en el archivo, la IP responde. No supongas.
+2. **Después de hacer, verificar.** Tras editar archivos, vuelve a leer el resultado (`git diff` o buscar el
+   texto nuevo) antes de continuar. Tras un cambio en la caja, captura de pantalla o lectura del estado.
+3. **Reemplazos de texto en lote:** usa siempre la forma completa (cadena vieja → cadena nueva) y avisa si una
+   cadena no se encontró. Incidente real: una función de reemplazo recibió un solo par de textos, PowerShell
+   lo aplanó y reemplazó una *letra* en vez de la frase ("Android" quedó "nndroid") y el archivo dañado se
+   publicó. Con un solo par, usa `$t.Replace($viejo, $nuevo)` directo y revisa el resultado.
+4. **Antes de `git push`:** `git diff --stat` y `git diff` revisados, buscar texto dañado y comparar con la
+   carpeta de trabajo. Después del push, comprobar el remoto. Los cambios del proyecto se suben a GitHub al
+   terminar cada bloque de trabajo; no esperar a que el usuario lo pida.
+5. **Los datos del sistema pueden mentir.** En cajas baratas el firmware falsea la RAM (la MXQ Pro 5G dice
+   4 GB y tiene 1 GB). Verifica el hardware real antes de prometer nada: `dmesg | grep Memory:`,
+   `/proc/iomem` (requiere `adb root`; revierte con `adb unroot`) y `ro.board.platform`.
+
 ## El prompt
 
 Quiero limpiar mi TV box Android y ponerle mi launcher estilo Apple TV (ya hecho, en `tv-launcher/`).
