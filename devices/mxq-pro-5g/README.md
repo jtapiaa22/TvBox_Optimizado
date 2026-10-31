@@ -3,7 +3,12 @@
 Caja de referencia con la que se desarrolló todo. Android 7.1.2 (SDK 25), **1 GB de RAM real** (Android reporta 4 GB, falseado por el firmware), eMMC de 8 GB, 1280×720 a 160 dpi,
 firmware `userdebug` con `ro.adb.secure=0`. Sin entradas HDMI ni TV en vivo. ADB por Wi-Fi en el puerto 5555.
 
-## Qué se desactivó (`pm disable-user --user 0`, todo reversible)
+## Qué se quitó (primero `pm disable-user --user 0`; luego `pm uninstall --user 0`, reversible)
+Tras comprobar que todo funcionaba con los paquetes desactivados, se quitaron del usuario 0 con
+`pm uninstall --user 0 <paquete>` para que ni aparezcan en Ajustes → Aplicaciones (ahí se veían, por ejemplo,
+el teclado chino Google Pinyin). Los APK siguen en `/system`, así que `cmd package install-existing <paquete>`
+los devuelve. No libera espacio en la eMMC.
+
 | Grupo | Paquetes |
 |---|---|
 | Telemetría/OTA Adups | `com.adups.fota` |
@@ -34,7 +39,7 @@ desactivado. El Home preferido (`cmd package set-home-activity`) sobrevivió sie
 ```powershell
 .\restore.ps1
 ```
-Reactiva todos los paquetes de arriba, devuelve las animaciones a 1.0 y vuelve a poner el launcher original
+Reinstala (`install-existing`) y reactiva todos los paquetes de arriba, devuelve las animaciones a 1.0 y vuelve a poner el launcher original
 como Home. Para un solo paquete: `adb shell pm enable <paquete>`. Las IP del script son las de esta caja:
 edítalas si cambia.
 
