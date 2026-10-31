@@ -4,10 +4,14 @@ Caja de referencia con la que se desarrolló todo. Android 7.1.2 (SDK 25), **1 G
 firmware `userdebug` con `ro.adb.secure=0`. Sin entradas HDMI ni TV en vivo. ADB por Wi-Fi en el puerto 5555.
 
 ## Qué se quitó (primero `pm disable-user --user 0`; luego `pm uninstall --user 0`, reversible)
-Tras comprobar que todo funcionaba con los paquetes desactivados, se quitaron del usuario 0 con
-`pm uninstall --user 0 <paquete>` para que ni aparezcan en Ajustes → Aplicaciones (ahí se veían, por ejemplo,
-el teclado chino Google Pinyin). Los APK siguen en `/system`, así que `cmd package install-existing <paquete>`
-los devuelve. No libera espacio en la eMMC.
+Tras comprobar que todo funcionaba con los paquetes desactivados, se quitaron con `pm uninstall --user 0
+<paquete>`. Eso no basta para limpiar Ajustes → Aplicaciones: esa pantalla sigue listando las apps de sistema
+desinstaladas (con 0 B; se veía, por ejemplo, el teclado chino Google Pinyin y "Bookmark Provider"). Para que
+desaparezcan de verdad se hizo, con respaldo previo de los APK en el PC (155 MB, no se sube a GitHub):
+`adb root` → `adb remount` → `rm -rf` de las 29 carpetas en `/system/app` y `/system/priv-app` → reinicio.
+Chrome y TalkBack, que tenían una copia actualizada en `/data/app`, además necesitaron `pm uninstall <paquete>`
+(sin `--user`). Verificado tras reiniciar: arranca directo en el launcher y ninguna de las 29 aparece. No libera
+casi espacio (unos 155 MB en total, sobre todo Chrome).
 
 | Grupo | Paquetes |
 |---|---|
@@ -40,8 +44,9 @@ desactivado. El Home preferido (`cmd package set-home-activity`) sobrevivió sie
 ```powershell
 .\restore.ps1
 ```
-Reinstala (`install-existing`) y reactiva todos los paquetes de arriba, devuelve las animaciones a 1.0 y vuelve a poner el launcher original
-como Home. Para un solo paquete: `adb shell pm enable <paquete>`. Las IP del script son las de esta caja:
+Vuelve a copiar a `/system` las carpetas respaldadas (`tv-backup\system-apps`, que hay que tener antes de borrar),
+devuelve las animaciones a 1.0 y vuelve a poner el launcher original como Home. **El script de restauración no se
+ha probado**: se escribió al borrar y no se ejecutó después. Las IP del script son las de esta caja:
 edítalas si cambia.
 
 ## Dock usado

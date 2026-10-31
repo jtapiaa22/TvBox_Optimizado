@@ -63,6 +63,7 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
   Play Store/Services, teclado, servicios de remoto/Bluetooth, TV/HDMI/entradas.
 - Antes de tocar voz, Chromecast/Miracast o actualizaciones, pregúntame cuáles uso.
 - Un `pm` por llamada, lotes pequeños y una captura entre lotes.
+- Para que las apps quitadas no salgan en Ajustes → Aplicaciones (esa lista incluye las de sistema desinstaladas, con 0 B), hay que borrarlas de `/system`: primero respaldo de sus carpetas en el PC, luego `adb root`, `adb remount`, `rm -rf` de cada carpeta (comprobando que la ruta es `/system/app/X` o `/system/priv-app/X`), `adb unroot` y reinicio. Si la app tenía actualización en `/data/app` (Chrome, TalkBack), además `pm uninstall <paquete>` sin `--user`. Pídele confirmación al usuario antes: toca la partición del sistema.
 - Animaciones: `settings put global window_animation_scale|transition_animation_scale|animator_duration_scale 0.5`
   (guarda los valores previos en `restore.ps1`).
 - Private DNS (bloqueo de anuncios) solo existe desde Android 9: no ofrecerlo en Android 7/8.
