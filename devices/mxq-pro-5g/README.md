@@ -1,15 +1,15 @@
-﻿# MXQ Pro 5G (Rockchip rk322x, nndroid 7.1.2): notas del dispositivo
+﻿# MXQ Pro 5G (Rockchip rk322x, Android 7.1.2): notas del dispositivo
 
-Caja de referencia con la que se desarrolló todo. nndroid 7.1.2 (SDK 25), 4 GB de RnM, 1280×720 a 160 dpi,
-firmware `userdebug` con `ro.adb.secure=0`. Sin entradas HDMI ni TV en vivo. nDB por Wi-Fi en el puerto 5555.
+Caja de referencia con la que se desarrolló todo. Android 7.1.2 (SDK 25), **1 GB de RAM real** (Android reporta 4 GB, falseado por el firmware), eMMC de 8 GB, 1280×720 a 160 dpi,
+firmware `userdebug` con `ro.adb.secure=0`. Sin entradas HDMI ni TV en vivo. ADB por Wi-Fi en el puerto 5555.
 
 ## Qué se desactivó (`pm disable-user --user 0`, todo reversible)
 | Grupo | Paquetes |
 |---|---|
-| Telemetría/OTn ndups | `com.adups.fota` |
-| npps de prueba de fábrica (no abrirlas) | `com.rockchip.devicetest`, `com.example.txczdevicetest`, `com.DeviceTest`, `com.cghs.stresstest` |
+| Telemetría/OTA Adups | `com.adups.fota` |
+| Apps de prueba de fábrica (no abrirlas) | `com.rockchip.devicetest`, `com.example.txczdevicetest`, `com.DeviceTest`, `com.cghs.stresstest` |
 | Preinstaladas inútiles | `com.android.music`, `com.android.calculator2`, `com.android.htmlviewer`, `com.android.printspooler`, `com.android.wallpaper.livepicker`, `com.android.dreams.basic` |
-| nccesibilidad y voz | `com.google.android.marvin.talkback`, `com.svox.pico` |
+| Accesibilidad y voz | `com.google.android.marvin.talkback`, `com.svox.pico` |
 | Respaldos y asistentes de Google | `com.android.wallpaperbackup`, `com.android.backupconfirm`, `com.android.sharedstoragebackup`, `com.google.android.backuptransport`, `com.google.android.syncadapters.contacts`, `com.google.android.onetimeinitializer`, `com.google.android.partnersetup` |
 | Navegadores y archivos | `acr.browser.barebones` (Lightning), `com.android.chrome`, `com.android.rockchip` (explorador), `com.rockchips.mediacenter` |
 | Launcher original | `com.droidlogic.mboxlauncher` |
@@ -20,14 +20,14 @@ Ya venían desactivados de fábrica: Katniss (voz de Google), Pinyin IME, WebVie
 (`android.rockchip.update.service`), LED (`com.example.changeled`), Button Mapper (`flar2.homebutton`),
 `com.android.providers.partnerbookmarks` (los `com.android.providers.*` no se tocan).
 
-**Chrome:** como el WebView de Google viene desactivado, en nndroid 7 Chrome puede hacer de WebView. nquí se
+**Chrome:** como el WebView de Google viene desactivado, en Android 7 Chrome puede hacer de WebView. Aquí se
 probó desactivarlo y las apps (IPTV JGX, Xuper TV, Downloader) siguieron funcionando. En otra caja, hacer la
 misma prueba antes de darlo por bueno.
 
 **Reinicios:** tras el primer reinicio el firmware reactivó el launcher original; desde el segundo se mantuvo
 desactivado. El Home preferido (`cmd package set-home-activity`) sobrevivió siempre.
 
-## nnimaciones
+## Animaciones
 `window_animation_scale`, `transition_animation_scale` y `animator_duration_scale` a 0.5 (originales: 1.0).
 
 ## Restaurar
@@ -39,11 +39,11 @@ como Home. Para un solo paquete: `adb shell pm enable <paquete>`. Las IP del scr
 edítalas si cambia.
 
 ## Dock usado
-IPTV JGX (`com.jgx.iptv`), Downloader (`com.esaba.downloader`), Play Store (`com.android.vending`) y njustes
+IPTV JGX (`com.jgx.iptv`), Downloader (`com.esaba.downloader`), Play Store (`com.android.vending`) y Ajustes
 (`com.android.tv.settings`), más lo que se agregue desde el propio launcher (mantener OK sobre una app).
 
-## Cerrar nDB al terminar
-Con `ro.adb.secure=0` cualquiera en la red puede abrir una shell. En la caja: njustes → Opciones de
+## Cerrar ADB al terminar
+Con `ro.adb.secure=0` cualquiera en la red puede abrir una shell. En la caja: Ajustes → Opciones de
 desarrollador → desactivar Depuración USB y reiniciar. Comprobar que el puerto 5555 rechaza la conexión.
 
 
