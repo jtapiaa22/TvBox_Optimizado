@@ -659,21 +659,43 @@ public class Launcher extends Activity {
         }
     };
 
+    /**
+     * Free RAM in kB, from /proc/meminfo: MemFree + Inactive(file).
+     * Some cheap TV boxes patch MemTotal, Cached and ActivityManager's numbers upwards (the MXQ Pro 5G reports
+     * 4 GB with 1 GB of real RAM), so those fields and the total are deliberately not used.
+     */
+    private long freeRamKb() {
+        long free = -1, active = 0, inactive = 0, avail = -1;
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader("/proc/meminfo"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split("\\s+");
+                if (p.length < 2) continue;
+                if (p[0].equals("MemFree:")) free = Long.parseLong(p[1]);
+                else if (p[0].equals("Active(file):")) active = Long.parseLong(p[1]);
+                else if (p[0].equals("Inactive(file):")) inactive = Long.parseLong(p[1]);
+                else if (p[0].equals("MemAvailable:")) avail = Long.parseLong(p[1]);
+            }
+            br.close();
+        } catch (Exception ignored) { }
+        if (free < 0) return -1;
+        // MemAvailable (kernel 3.14+) when the kernel offers it; otherwise a conservative estimate: free memory
+        // plus the inactive file cache (Active(file) also looked inflated on the MXQ Pro 5G, so it is left out)
+        return avail >= 0 ? avail : free + inactive;
+    }
+
     /** Ends cached/background processes of every other app (foreground apps are untouched). */
     private void freeRam() {
         final android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
-        android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
-        am.getMemoryInfo(mi);
-        final long before = mi.availMem;
+        final long before = freeRamKb();
         for (ApplicationInfo ai : getPackageManager().getInstalledApplications(0)) {
             if (!ai.packageName.equals(getPackageName())) am.killBackgroundProcesses(ai.packageName);
         }
         Toast.makeText(this, "Liberando RAM…", Toast.LENGTH_SHORT).show();
         stats.postDelayed(new Runnable() {
             @Override public void run() {
-                android.app.ActivityManager.MemoryInfo m2 = new android.app.ActivityManager.MemoryInfo();
-                am.getMemoryInfo(m2);
-                long freed = (m2.availMem - before) / 1048576;
+                long freed = (freeRamKb() - before) / 1024;
                 Toast.makeText(Launcher.this,
                         freed > 20 ? "Se liberaron " + freed + " MB" : "La RAM ya estaba optimizada",
                         Toast.LENGTH_LONG).show();
@@ -684,13 +706,12 @@ public class Launcher extends Activity {
 
     private void updateStats() {
         StringBuilder sb = new StringBuilder();
-        try {
-            android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
-            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
-            am.getMemoryInfo(mi);
-            sb.append(String.format(java.util.Locale.US, "RAM %.1f / %.1f GB libre",
-                    mi.availMem / 1073741824.0, mi.totalMem / 1073741824.0));
-        } catch (Exception ignored) { }
+        long kb = freeRamKb();
+        if (kb >= 0) {
+            long mb = kb / 1024;
+            sb.append(mb >= 1000 ? String.format(java.util.Locale.US, "RAM libre %.1f GB", mb / 1024.0)
+                    : "RAM libre " + mb + " MB");
+        }
         try {
             java.io.BufferedReader br = new java.io.BufferedReader(
                     new java.io.FileReader("/sys/class/thermal/thermal_zone0/temp"));

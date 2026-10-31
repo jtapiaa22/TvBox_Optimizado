@@ -2,7 +2,7 @@
 
 Úsalo en Claude Code (o similar con acceso a shell) desde un PC con Windows en la misma red Wi-Fi/LAN que la
 caja, con este repositorio disponible (`tv-launcher/`, `docs/`). Probado en una MXQ Pro 5G (Rockchip rk322x,
-Android 7.1.2, 4 GB RAM). Sirve para cajas genéricas con Android 5-8; en Android 8+ también, pero ahí
+Android 7.1.2, 1 GB de RAM real aunque Android diga 4 GB). Sirve para cajas genéricas con Android 5-8; en Android 8+ también, pero ahí
 considera usar el launcher de referencia en vez de este.
 
 **Antes, en la caja:** Ajustes → Información → pulsa 7 veces "Número de compilación" → Opciones de
@@ -91,7 +91,7 @@ durante las pruebas): prueba la navegación con el foco o con apps inocuas (Ajus
 ---
 
 ## Datos del dispositivo de referencia (MXQ Pro 5G)
-- Rockchip rk322x, `userdebug`/`test-keys`, Android 7.1.2 (SDK 25), 4 GB, `ro.adb.secure=0`, 1280×720 a 160 dpi.
+- Rockchip rk322x, `userdebug`/`test-keys`, Android 7.1.2 (SDK 25), **1 GB de RAM real** (Android reporta 4 GB: el firmware falsea `/proc/meminfo`, `MemTotal`, `Cached` y `ActivityManager`; se comprobo con `dmesg` y `/proc/iomem` tras `adb root`), 8 GB de eMMC, `ro.adb.secure=0`, 1280×720 a 160 dpi.
   La ventana útil mide 672 px de alto (el launcher se ajusta solo).
 - Apps de usuario: `com.jgx.iptv` (IPTV JGX), `com.esaba.downloader`, `flar2.homebutton` (Button Mapper),
   Chrome, Play Store. Ajustes TV: `com.android.tv.settings/.MainSettings`.
@@ -105,4 +105,5 @@ durante las pruebas): prueba la navegación con el foco o con apps inocuas (Ajus
 5. La ventana mide menos que la pantalla (barras del sistema): no asumir 720 de alto.
 6. En PowerShell, los avisos de las herramientas por stderr se ven como errores; revisar códigos de salida.
 7. `pm clear com.jgx.launcher` borra dock/recientes/ocultas (el Home preferido se conserva).
+
 

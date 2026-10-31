@@ -1,8 +1,8 @@
-# Launcher estilo Apple TV para TV boxes con Android viejo (7.x)
+﻿# Launcher estilo Apple TV para TV boxes con Android viejo (7.x)
 
 Documentación técnica de `tv-launcher/`. Un solo archivo Java (`src/com/jgx/launcher/Launcher.java`), sin
 AndroidX, sin Gradle, sin recursos XML: toda la UI se construye por código. Pensado para cajas con Android
-7.1 (SDK 25), ~1-4 GB de RAM y control remoto con D-pad.
+7.1 (SDK 25), ~1-2 GB de RAM y control remoto con D-pad.
 
 ## Por qué existe
 El launcher de referencia (otro repositorio) pide Android 8+ (minSdk 26). En Android 7.1 responde
@@ -20,7 +20,7 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 
 ## Pantalla
 - Fondo negro. Arriba a la izquierda: saludo, hora grande (98.8 sp), fecha. Arriba a la derecha: botones
-  "Liberar RAM", "Wi-Fi · red · Mbps" y "Ajustes", y debajo una línea "RAM x / y GB libre".
+  "Liberar RAM", "Wi-Fi · red · Mbps" y "Ajustes", y debajo una línea "RAM libre N MB".
 - Dock: banda redondeada abajo con tiles de 240×135 dp; sobre el dock, el nombre de la app enfocada en grande
   y un brillo ambiental del color promedio del ícono (muestreado a 24×24 px).
 - Debajo (al bajar la pantalla se desplaza): fila "Recientes" (hasta 4) y "Todas las apps" en 4 columnas,
@@ -75,14 +75,14 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 (`MainSettings` responde a `android.settings.SETTINGS`). Funciona también para Wi-Fi y detalles de app.
 
 ## Barra superior
-- RAM: `ActivityManager.getMemoryInfo` (disponible/total). Se refresca cada 5 s solo mientras el launcher está
+- RAM: `MemFree + Inactive(file)` de `/proc/meminfo` (o `MemAvailable` si el kernel lo ofrece), sin mostrar total. Hay cajas baratas que falsean `MemTotal`, `Cached` y `ActivityManager` (la MXQ Pro 5G dice 4 GB y tiene 1 GB), asi que esos valores no se usan. Se refresca cada 5 s solo mientras el launcher está
   en primer plano. Sin red.
 - Wi-Fi: SSID y `getLinkSpeed()` de `WifiManager` (permiso `ACCESS_WIFI_STATE`).
 - Temperatura: se intenta leer `/sys/class/thermal/thermal_zone0/temp`; en la MXQ Pro 5G no es legible y no se
   muestra nada. En otras cajas puede aparecer.
 - **Liberar RAM**: `killBackgroundProcesses` sobre todos los paquetes instalados excepto el propio (permiso
   `KILL_BACKGROUND_PROCESSES`, normal). Mide antes/después y avisa con un Toast. Solo toca procesos en segundo
-  plano; en la prueba liberó ~200 MB (parte vuelve sola porque los servicios del sistema se reinician).
+  plano; en la prueba liberó ~170 MB medidos con la misma cifra (parte vuelve sola porque los servicios del sistema se reinician).
 
 ## Cómo cambiar cosas
 - Dock por defecto, nombres, acciones: constante `DOCK`.
@@ -98,3 +98,4 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 - Las teclas de acceso directo del mando (apps) no se mapean; se usa Button Mapper si está instalado.
 - No probado con el mando físico durante el desarrollo: todo se verificó inyectando teclas por ADB y con
   capturas de pantalla.
+
