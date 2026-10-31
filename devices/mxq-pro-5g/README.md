@@ -23,7 +23,8 @@ Ya venían desactivados de fábrica: Katniss (voz de Google), Pinyin IME, WebVie
 
 **Se dejaron activos a propósito:** Miracast (`com.rockchip.wfd`), actualizaciones Rockchip
 (`android.rockchip.update.service`), LED (`com.example.changeled`), Button Mapper (`flar2.homebutton`),
-`com.android.providers.partnerbookmarks` (los `com.android.providers.*` no se tocan).
+y nada más. El paquete `com.android.providers.partnerbookmarks` ("Bookmark Provider" en Ajustes) se dejó
+al principio y después también se quitó con `pm uninstall --user 0`.
 
 **Chrome:** como el WebView de Google viene desactivado, en Android 7 Chrome puede hacer de WebView. Aquí se
 probó desactivarlo y las apps (IPTV JGX, Xuper TV, Downloader) siguieron funcionando. En otra caja, hacer la

@@ -14,7 +14,8 @@ $paquetes = @(
   'com.google.android.syncadapters.contacts', 'com.google.android.onetimeinitializer',
   'com.google.android.partnersetup', 'acr.browser.barebones', 'com.android.chrome',
   'com.android.rockchip', 'com.rockchips.mediacenter', 'com.droidlogic.mboxlauncher',
-  'com.google.android.katniss', 'com.android.inputmethod.pinyin', 'com.android.bookmarkprovider'
+  'com.google.android.katniss', 'com.android.inputmethod.pinyin', 'com.android.bookmarkprovider',
+  'com.android.providers.partnerbookmarks'
 )
 foreach ($p in $paquetes) {
   & $adb -s $d shell cmd package install-existing $p
