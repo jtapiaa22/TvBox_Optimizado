@@ -1,5 +1,7 @@
 package com.jgx.launcher;
 
+import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -81,6 +83,11 @@ public class Launcher extends Activity {
     private View hl;
     private boolean hlShown;
     private GradientDrawable glow;
+    // The glow lives in a fixed layer BEHIND the scrolling content, so the background is the same on every screen.
+    private FrameLayout root;
+    private float glowCx = 0.25f, glowCy = 0.84f;
+    private int glowColor = 0x003A6EA5;
+    private ValueAnimator glowAnim;
     private TextView dockName, wifiPill, settingsPill;
     private final List<View> dockCells = new ArrayList<>();
     private SharedPreferences prefs;
@@ -376,7 +383,7 @@ public class Launcher extends Activity {
                 return true; // never scroll on its own: Up/Down move exactly one row
             }
         };
-        scroll.setBackgroundColor(Color.BLACK);
+        scroll.setBackgroundColor(Color.TRANSPARENT);   // the black background and the glow are in `root`, behind it
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroll.setFillViewport(true);
@@ -384,15 +391,18 @@ public class Launcher extends Activity {
         content = new FrameLayout(this);
         scroll.addView(content, new ViewGroup.LayoutParams(-1, -2));
 
-        // ambient glow, one view behind everything
+        // ambient glow: a fixed full-screen layer behind the scrolling content (it does not scroll away)
         glow = new GradientDrawable();
         glow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
         glow.setGradientRadius(sw * 0.55f);
-        glow.setGradientCenter(0.25f, 0.82f);
+        glow.setGradientCenter(glowCx, glowCy);
         glow.setColors(new int[]{0x00000000, 0x00000000});
         View glowView = new View(this);
         glowView.setBackground(glow);
-        content.addView(glowView, new FrameLayout.LayoutParams(-1, sh));
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Color.BLACK);
+        root.addView(glowView, new FrameLayout.LayoutParams(-1, -1));
+        root.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
 
         // glass highlight
         hl = new View(this);
@@ -558,7 +568,7 @@ public class Launcher extends Activity {
         }
         addRows(gridBox, grid, gridCells, false);
 
-        setContentView(scroll);
+        setContentView(root);
 
         // restore last focused tile
         final String last = prefs.getString("last", null);
@@ -851,13 +861,15 @@ public class Launcher extends Activity {
                 moveHighlight(img);
                 if (dock) {
                     dockName.setText(e.label);
-                    setGlow(e.color, img);
+                    setGlow(e.color, img, 0);
                     scroll.smoothScrollTo(0, 0);
                 } else {
                     dockName.setText("");
                     Rect r = new Rect(0, 0, c.getWidth(), c.getHeight());
                     content.offsetDescendantRectToMyCoords(c, r);
-                    scroll.smoothScrollTo(0, Math.max(0, r.top - dp(170)));
+                    int target = Math.max(0, r.top - dp(170));
+                    setGlow(e.color, img, target);
+                    scroll.smoothScrollTo(0, target);
                 }
             }
         });
@@ -880,11 +892,33 @@ public class Launcher extends Activity {
         }
     }
 
-    private void setGlow(int color, View img) {
+    /**
+     * Moves the ambient glow under the focused tile and fades it to the tile's colour. `scrollY` is where the content will
+     * be scrolled to once this focus change settles, so the glow lands under the tile on SCREEN (it is a fixed layer).
+     */
+    private void setGlow(int color, View img, int scrollY) {
         Rect r = new Rect(0, 0, img.getWidth(), img.getHeight());
         content.offsetDescendantRectToMyCoords(img, r);
-        glow.setGradientCenter(Math.min(0.95f, (r.centerX()) / (float) sw), 0.84f);
-        glow.setColors(new int[]{(color & 0x00FFFFFF) | 0x66000000, (color & 0x00FFFFFF) | 0x00000000});
+        int viewH = Math.max(1, root != null && root.getHeight() > 0 ? root.getHeight() : sh);
+        final float toX = Math.min(0.95f, r.centerX() / (float) sw);
+        final float toY = Math.max(0.30f, Math.min(0.88f, (r.centerY() - scrollY) / (float) viewH));
+        final float fromX = glowCx, fromY = glowCy;
+        final int fromC = glowColor, toC = color | 0xFF000000;
+        if (glowAnim != null) glowAnim.cancel();
+        glowAnim = ValueAnimator.ofFloat(0f, 1f);
+        glowAnim.setDuration(280);
+        final ArgbEvaluator ev = new ArgbEvaluator();
+        glowAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator a) {
+                float f = (Float) a.getAnimatedValue();
+                glowCx = fromX + (toX - fromX) * f;
+                glowCy = fromY + (toY - fromY) * f;
+                glowColor = (Integer) ev.evaluate(f, fromC, toC);
+                glow.setGradientCenter(glowCx, glowCy);
+                glow.setColors(new int[]{(glowColor & 0x00FFFFFF) | 0x66000000, glowColor & 0x00FFFFFF});
+            }
+        });
+        glowAnim.start();
     }
 
     private void start(Intent i) {
