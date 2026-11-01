@@ -850,13 +850,14 @@ public class Launcher extends Activity {
         screen.addView(head, hp);
         TextView greet = text(greeting(), 26.6f, "sans-serif");
         greet.setAlpha(0.95f);
+        greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
         head.addView(greet);
         TextClock clock = new TextClock(this);
         clock.setFormat24Hour("HH:mm");
         clock.setFormat12Hour("h:mm");
         clock.setTextColor(Color.WHITE);
         clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, 98.8f * d);
-        clock.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
         clock.setIncludeFontPadding(false);
         clock.setShadowLayer(dp(5), 0, dp(3), 0xAA000000);
         head.addView(clock);
@@ -865,7 +866,7 @@ public class Launcher extends Activity {
         date.setFormat12Hour("EEEE d 'de' MMMM");
         date.setTextColor(0xF2FFFFFF);
         date.setTextSize(TypedValue.COMPLEX_UNIT_PX, 24.7f * d);
-        date.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+        date.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
         date.setShadowLayer(dp(4), 0, dp(2), 0xAA000000);
         head.addView(date);
 
@@ -915,6 +916,7 @@ public class Launcher extends Activity {
 
         stats = text("", 19, "sans-serif");
         stats.setAlpha(0.9f);
+        stats.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
         FrameLayout.LayoutParams sp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
         sp.rightMargin = dp(MARGIN + 6);
         sp.topMargin = dp(110);

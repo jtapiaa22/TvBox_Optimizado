@@ -33,6 +33,8 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 - El nombre grande de la app enfocada va en **negrita cursiva** (`Typeface.BOLD_ITALIC` de Roboto). Se probó convertir las
   letras a los caracteres Unicode "Mathematical Bold Italic" (𝑨𝑩𝑪…) y en la MXQ Pro 5G (Android 7.1) salen como cuadraditos
   porque la fuente del sistema no los trae: no usar caracteres matemáticos para dar estilo, usar el `Typeface`.
+- Saludo, hora, fecha y la línea "RAM libre" van en cursiva "media" (`sans-serif-medium` + `ITALIC`): misma familia que el
+  nombre de la app pero más liviana, y sin cambiar tamaños ni posiciones.
 - Textos: Roboto del sistema con sombra suave (`setShadowLayer`) para legibilidad. No se descargó Outfit.
 - Escala: el diseño es de 1280×720. `d` se calcula con el tamaño físico de la pantalla (`getRealMetrics`,
   `min(ancho/1280, alto/720)`), no con la densidad que declare el firmware; medidas y textos se multiplican por `d`.
