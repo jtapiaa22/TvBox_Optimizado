@@ -53,6 +53,13 @@ edítalas si cambia.
 IPTV JGX (`com.jgx.iptv`), Downloader (`com.esaba.downloader`), Play Store (`com.android.vending`) y Ajustes
 (`com.android.tv.settings`), más lo que se agregue desde el propio launcher (mantener OK sobre una app).
 
+## WebView actualizado (2026-10-31)
+La caja venía con Android System WebView 55 (`com.google.android.webview`, de 2016), muy viejo para sitios actuales.
+Se actualizó a la **114.0.5735.60 (arm-v7a, Android 7.0+)** bajada de APKMirror (84,28 MB) con
+`adb install -r`; coincide la firma del certificado con la del WebView de sistema (SHA-256 `6FAF3C41…BA6FE5`), por eso
+Android lo acepta como actualización. La 55 sigue en `/system`: `adb shell pm uninstall com.google.android.webview`
+vuelve a ella. Las versiones más nuevas de WebView piden Android 10 o más. No se midió el efecto en la velocidad.
+
 ## Cerrar ADB al terminar
 Con `ro.adb.secure=0` cualquiera en la red puede abrir una shell. En la caja: Ajustes → Opciones de
 desarrollador → desactivar Depuración USB y reiniciar. Comprobar que el puerto 5555 rechaza la conexión.
