@@ -63,7 +63,12 @@ public class Launcher extends Activity {
         {"com.android.vending", null, null},
         {"com.android.tv.settings", "Ajustes", Settings.ACTION_SETTINGS},
     };
-    private static final String[] HIDDEN = {"com.droidlogic.mboxlauncher", "com.jgx.launcher"};
+    // No se muestran en la grilla ni en Recientes: el launcher original, este mismo launcher y utilidades de sistema que
+    // nadie abre a proposito (explorador "Descargas" de Android y WifiDisplay de Rockchip). Quita una linea para verlas.
+    private static final String[] HIDDEN = {
+        "com.droidlogic.mboxlauncher", "com.jgx.launcher",
+        "com.android.documentsui", "com.rockchip.wfd",
+    };
     private static final int COLS = 4;
     private static final int TILE_W = 240, TILE_H = 135, GAP = 28, HL_PAD = 20;
     private static final int MARGIN = 60, BAND_PAD = 30, BAND_H = 196, BAND_BOTTOM = 56;
