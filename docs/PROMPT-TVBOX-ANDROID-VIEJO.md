@@ -66,6 +66,20 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
 - Para que las apps quitadas no salgan en Ajustes → Aplicaciones (esa lista incluye las de sistema desinstaladas, con 0 B), hay que borrarlas de `/system`: primero respaldo de sus carpetas en el PC, luego `adb root`, `adb remount`, `rm -rf` de cada carpeta (comprobando que la ruta es `/system/app/X` o `/system/priv-app/X`), `adb unroot` y reinicio. Si la app tenía actualización en `/data/app` (Chrome, TalkBack), además `pm uninstall <paquete>` sin `--user`. Pídele confirmación al usuario antes: toca la partición del sistema.
 - Animaciones: `settings put global window_animation_scale|transition_animation_scale|animator_duration_scale 0.5`
   (guarda los valores previos en `restore.ps1`).
+- **Play Store y Play Services (el mayor ahorro de RAM):** en la MXQ Pro 5G sumaban ~300 MB de 1 GB reales. Se deshabilitan
+  (`pm disable-user --user 0`) `com.android.vending`, `com.google.android.gms`, `com.google.android.gsf.login` y
+  `com.google.android.gsf`; **no** `com.google.android.packageinstaller` (instalador de APK). Pregúntale al usuario si usa
+  Play Store para algo. Pasos, en este orden:
+  1. **Instalar Downloader primero**: es la forma de instalar apps sin Play Store. Versión decidida:
+     **1.5.1-ForGoogleAndroidDevices (código 62)**, liviana y rápida. Viene como `.xapk`: se instala con
+     `adb install-multiple -r` del APK principal más la pieza de densidad de la caja (`config.mdpi` a 160 dpi) y los idiomas.
+  2. **Si la caja ya trae otro Downloader (por ejemplo más nuevo) y da errores**, desinstalarlo
+     (`pm uninstall com.esaba.downloader`) e instalar el 1.5.1: Android no permite bajar de versión con `install -r`
+     (`INSTALL_FAILED_VERSION_DOWNGRADE`); `-d` solo sirve en firmware depurable. Se pierden los ajustes de Downloader.
+  3. **Comprobar que nadie use Play Store** (`dumpsys activity activities | grep mResumedActivity`): en la MXQ se cortó
+     una instalación en curso al apagarla.
+  4. Apagar los paquetes de a uno, midiendo y abriendo las apps del usuario después. Es reversible con `pm enable`.
+  5. Para medir memoria **no usar `/proc/meminfo`** (falseado): usar el PSS por proceso de `dumpsys meminfo`.
 - Private DNS (bloqueo de anuncios) solo existe desde Android 9: no ofrecerlo en Android 7/8.
 
 ### 4. Launcher

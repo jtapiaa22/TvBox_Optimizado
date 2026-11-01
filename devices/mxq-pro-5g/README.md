@@ -60,6 +60,32 @@ Se actualizó a la **114.0.5735.60 (arm-v7a, Android 7.0+)** bajada de APKMirror
 Android lo acepta como actualización. La 55 sigue en `/system`: `adb shell pm uninstall com.google.android.webview`
 vuelve a ella. Las versiones más nuevas de WebView piden Android 10 o más. No se midió el efecto en la velocidad.
 
+## Play Store y Play Services apagados + Downloader 1.5.1 (2026-11-01)
+Es el mayor ahorro de RAM: Play Services pesaba ~167 MB y Play Store ~137 MB de los 1 GB reales. Se **deshabilitan**
+(no se borran) con `play-services.ps1 off`: `com.android.vending`, `com.google.android.gms`,
+`com.google.android.gsf.login` y `com.google.android.gsf`. Se deja `com.google.android.packageinstaller`, que es el
+instalador de APK del sistema. Tras apagarlos no queda ningún proceso de Google Play y las apps probadas (XtremeTV,
+JGX IPTV, Xuper TV, TizenTube y Downloader) abren sin avisos. Para volver: `play-services.ps1 on` (o `restore.ps1`).
+
+**Downloader es parte de este paso**: sin Play Store es la forma de instalar apps. Versión decidida:
+**1.5.1-ForGoogleAndroidDevices (código 62)**, liviana y rápida para estas cajas. Viene como `.xapk` (APK principal +
+piezas de idioma y densidad). Se instala con las piezas que corresponden a la caja (160 dpi = `mdpi`):
+```
+adb install-multiple -r com.esaba.downloader.apk config.mdpi.apk config.es.apk config.en.apk
+```
+**Si la caja ya trae otro Downloader (por ejemplo uno más nuevo) y da errores:** desinstalarlo
+(`adb shell pm uninstall com.esaba.downloader`) e instalar el 1.5.1. Con `install -r` Android no deja bajar de versión
+(`INSTALL_FAILED_VERSION_DOWNGRADE`); `install -r -d` solo funciona en firmware `userdebug`/depurable. Al desinstalar se
+pierden los ajustes de Downloader, no los archivos de `/sdcard`.
+
+**Antes de apagar Play Store, comprobar que nadie la esté usando:** en esta caja se cortó una instalación de VLC en
+curso. Comprobación: `adb shell dumpsys activity activities | grep mResumedActivity` (si dice `com.android.vending`, está
+abierta). El script `play-services.ps1` ya lo avisa y se niega si no hay Downloader instalado.
+
+**Lo que no se midió bien:** el contador de "RAM libre" del launcher, que parte de `/proc/meminfo` falseado por el
+firmware, dio cifras sin sentido tras apagar Google (más de 1 GB libre en una caja de 1 GB). Para comparar memoria usar el
+PSS por proceso de `dumpsys meminfo`.
+
 ## Cerrar ADB al terminar
 Con `ro.adb.secure=0` cualquiera en la red puede abrir una shell. En la caja: Ajustes → Opciones de
 desarrollador → desactivar Depuración USB y reiniciar. Comprobar que el puerto 5555 rechaza la conexión.

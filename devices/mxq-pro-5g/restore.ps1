@@ -25,5 +25,10 @@ foreach ($sub in 'app', 'priv-app') {
 & $adb -s $d shell settings put global transition_animation_scale 1.0
 & $adb -s $d shell settings put global animator_duration_scale 1.0
 
+# Play Store y Play Services (solo estan deshabilitados, no borrados; ver play-services.ps1)
+foreach ($p in 'com.android.vending', 'com.google.android.gms', 'com.google.android.gsf.login', 'com.google.android.gsf') {
+  & $adb -s $d shell pm enable $p
+}
+
 & $adb -s $d shell sync
 & $adb -s $d reboot   # el sistema vuelve a registrar los APK al arrancar
