@@ -353,6 +353,18 @@ public class Launcher extends Activity {
         }
     }
 
+    /**
+     * Atras en el inicio: lleva al primer icono del dock; si ya esta ahi, no hace nada. Sin esto Android cerraba la actividad
+     * y, al ser el Home, la volvia a abrir (parpadeo gris y launcher reiniciado). En el modo Mover lo atiende handleMoveKey.
+     */
+    @Override
+    public void onBackPressed() {
+        if (dockCells.isEmpty()) return;
+        View first = dockCells.get(0);
+        if (scroll.findFocus() != first) first.requestFocus();
+        scroll.smoothScrollTo(0, 0);
+    }
+
     /** Holding OK/Enter (key repeat) runs the focused view's long action; the key-up that follows is swallowed. */
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {

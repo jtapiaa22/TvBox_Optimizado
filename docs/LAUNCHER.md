@@ -46,6 +46,9 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 - Los extremos usan `nextFocus*Id` apuntando a sí mismos (los botones superiores y los bordes de cada fila),
   así el foco no se escapa. `FocusFinder` respeta esos ids.
 - Arriba desde el dock va al botón Wi-Fi; abajo desde los botones va al dock.
+- **Atrás** en el inicio (`onBackPressed`) lleva al primer ícono del dock y, si ya está ahí, no hace nada. Sin esto Android
+  cerraba la actividad y, al ser el Home, la volvía a abrir (parpadeo gris y launcher reiniciado). En el modo Mover y en
+  los diálogos Atrás conserva su función de cancelar.
 - Home (`onNewIntent`) siempre devuelve el foco al primer tile del dock. El último tile enfocado se guarda en
   `SharedPreferences` y se restaura al crear la actividad.
 
