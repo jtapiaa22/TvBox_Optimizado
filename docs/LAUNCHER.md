@@ -65,11 +65,25 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 - Sin límite de apps: `HorizontalScrollView` dentro de la banda. La banda tiene margen derecho para limitar su
   ancho. El scroll deja 34 dp de aire a cada lado del tile enfocado (`computeScrollDeltaToGetChildRectOnScreen`
   con el rectángulo ampliado) para que el vidrio quede dentro de la banda.
-- Menú al **mantener OK** sobre una app: "Mover a la izquierda / derecha", "Ocultar", "Apps ocultas…" (solo si hay
-  alguna), "Información de la app" y "Desinstalar". Las apps del sistema no se desinstalan (solo avisa).
-- "Ocultar" saca la app del dock y la guarda en `hidden`; no la desinstala. Para recuperarla, "Apps ocultas…" del
-  mismo menú, o mantener OK sobre el botón "Ajustes" de arriba: lista las ocultas y devuelve una (o "Mostrar todas")
-  al principio del dock.
+- Menú al **mantener OK** sobre una app: "Mover a la izquierda / derecha", "Ocultar", "Personalizar launcher…",
+  "Información de la app" y "Desinstalar". Las apps del sistema no se desinstalan (solo avisa).
+- "Ocultar" saca la app del dock y la guarda en `hidden`; no la desinstala. Para recuperarla: "Personalizar
+  launcher…" > "Apps ocultas…" (aparece solo si hay alguna), que devuelve una (o "Mostrar todas") al principio del dock.
+- `build()` descarta del dock las apps que ya no existen o están desactivadas; sin esto quedaban anotadas en la
+  lista guardada, ocupando una posición invisible (el primer tile ofrecía "Mover a la izquierda" sin tener nada a la izquierda).
+
+## Personalizar launcher y ajustes exportables
+- Se abre con mantener OK sobre cualquier app o sobre el botón "Ajustes" de arriba. Es un menú (`showLauncherMenu`)
+  al que se le van sumando opciones.
+- **Exportar ajustes** escribe `launcher-settings.json` en la carpeta externa propia de la app
+  (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan
+  las preferencias de `SETTING_KEYS` (dock y ocultas); `known` y `last` dependen de cada caja y no se exportan.
+- **Importar ajustes** lee ese archivo, borra `known` (las apps de esta caja que el archivo no menciona se reubican
+  solas al final del dock) y recrea la pantalla. Los paquetes del archivo que la caja no tenga se descartan solos.
+- Para otra caja: `install.ps1 <ip> -Ajustes archivo.json` copia el archivo y lo importa con
+  `am start -n com.jgx.launcher/.Launcher --ez import_settings true` (el launcher consume el extra una sola vez).
+- Probado en la MXQ Pro 5G: exportar desde el menú, cambiar el orden del dock en el JSON, importarlo por intent (el
+  orden cambió) y volver a importar el original (se restauró), y `install.ps1 -Ajustes` de punta a punta.
 - El long-press nativo de Android no es fiable con el mando (y con `input keyevent` simulado se interpretaba
   como clic corto). Se detecta en `dispatchKeyEvent`: `DPAD_CENTER/ENTER` con `repeatCount > 0` ejecuta la
   acción larga registrada en `longActions` y se descarta el `ACTION_UP` siguiente.

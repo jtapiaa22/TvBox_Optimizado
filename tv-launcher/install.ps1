@@ -5,6 +5,11 @@
          .\install.ps1 192.168.1.4 -DesactivarOriginal            # ademas desactiva el original, si hay uno solo
          .\install.ps1 192.168.1.4 -LauncherOriginal <paquete>    # desactiva ESE paquete (el que elijas de la lista)
          .\install.ps1 192.168.1.4 -SoloDetectar                  # solo muestra los candidatos: no compila ni instala
+         .\install.ps1 192.168.1.4 -Ajustes ajustes.json          # ademas importa un archivo de ajustes (dock, ocultas...)
+
+  El archivo de ajustes sale de la propia caja: mantener OK sobre una app > Personalizar launcher > Exportar ajustes, y
+  luego `adb pull /sdcard/Android/data/com.jgx.launcher/files/launcher-settings.json`. Importarlo en otra caja deja el
+  dock en el mismo orden; los paquetes que esa caja no tenga se descartan solos y sus apps nuevas van al final.
 
   Cada caja trae un launcher original con otro nombre (en la MXQ Pro 5G: com.droidlogic.mboxlauncher). El script lo
   busca (apps que responden a HOME), te lo muestra y NO desactiva nada si no se lo pides. Desactivar es reversible
@@ -14,7 +19,8 @@ param(
     [string]$Tv = "192.168.1.4",
     [string]$LauncherOriginal = "",
     [switch]$DesactivarOriginal,
-    [switch]$SoloDetectar
+    [switch]$SoloDetectar,
+    [string]$Ajustes = ""
 )
 $nuestro = 'com.jgx.launcher'
 # Paquetes que responden a HOME pero NO son un launcher que reemplazar (respaldo del sistema mientras no hay Home)
@@ -72,3 +78,14 @@ if ($objetivo) {
     Write-Host "No desactive nada. Para hacerlo: .\install.ps1 $Tv -LauncherOriginal <paquete>" -ForegroundColor Yellow
 }
 & $adb -s $s shell input keyevent KEYCODE_HOME
+
+if ($Ajustes) {
+    if (-not (Test-Path $Ajustes)) { throw "No existe el archivo de ajustes: $Ajustes" }
+    $dest = '/sdcard/Android/data/com.jgx.launcher/files'
+    & $adb -s $s shell am start -n "$nuestro/.Launcher" | Out-Null   # la primera vez crea la carpeta de la app
+    Start-Sleep 3
+    & $adb -s $s shell "mkdir -p $dest"
+    & $adb -s $s push $Ajustes "$dest/launcher-settings.json"
+    & $adb -s $s shell am start -n "$nuestro/.Launcher" --ez import_settings true | Out-Null
+    Write-Host "Ajustes importados desde $Ajustes" -ForegroundColor Green
+}

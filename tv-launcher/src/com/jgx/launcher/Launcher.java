@@ -129,6 +129,7 @@ public class Launcher extends Activity {
         f.addAction(Intent.ACTION_PACKAGE_REMOVED);
         f.addDataScheme("package");
         registerReceiver(pkgReceiver, f);
+        importIfRequested();
     }
 
     @Override
@@ -140,6 +141,8 @@ public class Launcher extends Activity {
     @Override
     protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
+        setIntent(i);
+        importIfRequested();
         // Home pressed while already on the launcher: back to the first dock app
         if (!dockCells.isEmpty()) {
             scroll.scrollTo(0, 0);
@@ -454,10 +457,13 @@ public class Launcher extends Activity {
         if (!seen.equals(known)) prefs.edit().putStringSet("known", seen).apply();
 
         List<Entry> dock = new ArrayList<>();
+        List<String> kept = new ArrayList<>();
         for (String[] spec : dockSpecs()) {
             Entry e = dockEntry(spec, all);
-            if (e != null) dock.add(e);
+            if (e != null) { dock.add(e); kept.add(spec[0]); }
         }
+        // una app desinstalada (o desactivada) no puede quedar anotada en el dock: ocuparia un lugar invisible
+        if (!kept.equals(dockPkgs())) storeDock(kept);
         dockEntries = dock;
 
         scroll = new ScrollView(this) {
@@ -583,7 +589,7 @@ public class Launcher extends Activity {
         });
         // long press on Ajustes: list the hidden apps to bring one (or all) back
         longActions.put(settingsPill, new Runnable() {
-            @Override public void run() { showHiddenApps(); }
+            @Override public void run() { showLauncherMenu(); }
         });
         settingsPill.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { start(new Intent(Settings.ACTION_SETTINGS)); }
@@ -720,6 +726,108 @@ public class Launcher extends Activity {
         saveDock(dl);
     }
 
+    // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
+
+    /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
+    private static final String[] SETTING_KEYS = {"dock", "hidden"};
+
+    private void showLauncherMenu() {
+        final List<String> items = new ArrayList<>();
+        if (!prefs.getStringSet("hidden", new HashSet<String>()).isEmpty()) items.add("Apps ocultas…");
+        items.add("Exportar ajustes");
+        items.add("Importar ajustes");
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Personalizar launcher")
+                .setItems(items.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dlg, int which) {
+                        String it = items.get(which);
+                        if (it.startsWith("Apps ocultas")) showHiddenApps();
+                        else if (it.equals("Exportar ajustes")) exportSettings();
+                        else if (it.equals("Importar ajustes")) importSettings();
+                    }
+                }).show();
+    }
+
+    /** Carpeta de la app en el almacenamiento externo: no pide permisos y `adb push/pull` llega hasta ahi. */
+    private java.io.File settingsFile() {
+        java.io.File dir = getExternalFilesDir(null);
+        return dir == null ? null : new java.io.File(dir, "launcher-settings.json");
+    }
+
+    private void exportSettings() {
+        java.io.File f = settingsFile();
+        if (f == null) { Toast.makeText(this, "No hay almacenamiento disponible", Toast.LENGTH_LONG).show(); return; }
+        try {
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("version", 1);
+            for (String k : SETTING_KEYS) {
+                Object v = prefs.getAll().get(k);
+                if (v instanceof Set) {
+                    org.json.JSONArray a = new org.json.JSONArray();
+                    for (Object s : (Set<?>) v) a.put(String.valueOf(s));
+                    o.put(k, a);
+                } else if (v != null) {
+                    o.put(k, v);
+                }
+            }
+            java.io.Writer w = new java.io.OutputStreamWriter(new java.io.FileOutputStream(f), "UTF-8");
+            w.write(o.toString(2));
+            w.close();
+            Toast.makeText(this, "Ajustes guardados en Android/data/" + getPackageName() + "/files/" + f.getName(),
+                    Toast.LENGTH_LONG).show();
+        } catch (Exception ex) {
+            Toast.makeText(this, "No se pudo exportar: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void importSettings() {
+        java.io.File f = settingsFile();
+        if (f == null || !f.isFile()) {
+            Toast.makeText(this, "No hay archivo de ajustes para importar", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(new java.io.FileInputStream(f), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line).append('\n');
+            br.close();
+            org.json.JSONObject o = new org.json.JSONObject(sb.toString());
+            SharedPreferences.Editor ed = prefs.edit();
+            for (String k : SETTING_KEYS) {
+                if (!o.has(k)) continue;
+                Object v = o.get(k);
+                if (v instanceof org.json.JSONArray) {
+                    Set<String> s = new HashSet<>();
+                    for (int i = 0; i < ((org.json.JSONArray) v).length(); i++) s.add(((org.json.JSONArray) v).getString(i));
+                    ed.putStringSet(k, s);
+                } else if (v instanceof String) {
+                    ed.putString(k, (String) v);
+                } else if (v instanceof Boolean) {
+                    ed.putBoolean(k, (Boolean) v);
+                } else if (v instanceof Integer) {
+                    ed.putInt(k, (Integer) v);
+                }
+            }
+            ed.remove("known"); // las apps de esta caja que no estan en el archivo se reubican solas al final del dock
+            ed.apply();
+            Toast.makeText(this, "Ajustes importados", Toast.LENGTH_SHORT).show();
+            recreate();
+        } catch (Exception ex) {
+            Toast.makeText(this, "Archivo de ajustes no valido: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** `adb shell am start -n com.jgx.launcher/.Launcher --ez import_settings true`: importa el archivo ya copiado a la caja. */
+    private void importIfRequested() {
+        Intent in = getIntent();
+        if (in == null || !in.getBooleanExtra("import_settings", false)) return;
+        in.removeExtra("import_settings"); // recreate() reusa este intent: sin esto se importaria en bucle
+        scroll.post(new Runnable() {
+            @Override public void run() { importSettings(); }
+        });
+    }
+
     private void showHiddenApps() {
         PackageManager pm = getPackageManager();
         final List<String> pkgs = new ArrayList<>();
@@ -825,7 +933,7 @@ public class Launcher extends Activity {
         if (di > 0) items.add("Mover a la izquierda");
         if (di >= 0 && di < dl.size() - 1) items.add("Mover a la derecha");
         if (dl.size() > 1) items.add("Ocultar");
-        if (!prefs.getStringSet("hidden", new HashSet<String>()).isEmpty()) items.add("Apps ocultas…");
+        items.add("Personalizar launcher…");
         items.add("Información de la app");
         items.add("Desinstalar");
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -840,8 +948,8 @@ public class Launcher extends Activity {
                             saveDock(dl);
                         } else if (it.equals("Ocultar")) {
                             hideApp(e.pkg);
-                        } else if (it.startsWith("Apps ocultas")) {
-                            showHiddenApps();
+                        } else if (it.startsWith("Personalizar")) {
+                            showLauncherMenu();
                         } else if (it.startsWith("Informaci")) {
                             start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri));
                         } else {
