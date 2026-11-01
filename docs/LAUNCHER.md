@@ -81,14 +81,22 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 ## Personalizar launcher y ajustes exportables
 - Se abre con mantener OK sobre cualquier app o sobre el botón "Ajustes" de arriba. Es un menú (`showLauncherMenu`)
   al que se le van sumando opciones. Cada una guarda un índice o booleano en las preferencias y rearma la pantalla.
-- **Imagen de fondo propia**: si hay un `background.jpg` / `.jpeg` / `.png` en la carpeta externa de la app
-  (`/sdcard/Android/data/com.jgx.launcher/files/`, la misma de los ajustes) se usa detrás del launcher, con una capa negra
-  de oscurecido (`bg_dim`: Sin oscurecer / Suave 35 % / Medio 55 % / Fuerte 75 %) para que los textos se lean; el brillo
-  de color va encima. `bg_on` la apaga sin borrar el archivo. Se copia con `install.ps1 <ip> -Fondo foto.jpg` o con
-  `adb push`. La imagen se decodifica al ancho de pantalla (`inSampleSize`) y en RGB_565, porque son cajas de 1 GB: una foto
-  de 4000×3000 dejó el launcher en ~35 MB de PSS. Un archivo roto o sin memoria se ignora y el launcher sigue sin imagen.
-  La imagen en sí **no** viaja en el archivo de ajustes (solo `bg_on` y `bg_dim`).
-- **Orden del dock** (`dock_order`): Manual (el orden que armó la persona, con "Mover a la izquierda/derecha") /
+- **Fondos propios (imágenes y videos)**: todo lo que haya en `/sdcard/Android/data/com.jgx.launcher/files/backgrounds/`
+  (`.jpg .jpeg .png` y `.mp4 .m4v .webm .mkv .3gp`) aparece en *Personalizar launcher > Fondo* (▶ marca los videos), con
+  "Ninguno" para quitarlo; el elegido se guarda en `bg_file` (por nombre). Encima va una capa negra de oscurecido (`bg_dim`:
+  Sin oscurecer / Suave 35 % / Medio 55 % / Fuerte 75 %) para que los textos se lean, y el brillo de color sobre eso.
+  Se copian con `install.ps1 <ip> -Fondo <archivos o carpeta>` (deja puesto el primero) o con `adb push`; también se puede
+  elegir por ADB: `am start -n com.jgx.launcher/.Launcher --es background nombre.jpg` (`""` = ninguno).
+  - Imágenes: se decodifican al ancho de pantalla (`inSampleSize`) y en RGB_565, porque son cajas de 1 GB (una foto de
+    4000×3000 dejó el launcher en ~35 MB de PSS). Conviene que sean **apaisadas**: una vertical se recorta por el medio, y
+    si el archivo no trae EXIF y está de costado hay que girarlo antes (pasó con las de Messi).
+  - Videos: `TextureView` + `MediaPlayer`, sin sonido y en bucle, recortados para llenar la pantalla (`fitVideo`). Se pausan
+    en `onPause` (el panel de Ajustes es translúcido) y se **sueltan en `onStop`**: con otra app al frente el cliente
+    desaparece de `dumpsys media.player`, así que el decodificador queda libre para esa app. Con un video de 720p el launcher
+    quedó en ~37 MB de PSS. Hay que usar H.264 (lo que decodifique la caja); un archivo roto o no soportado se ignora y el
+    fondo queda sin imagen, sin fallos.
+  - Los archivos **no** viajan en el archivo de ajustes (solo `bg_file` y `bg_dim`).
+- **Orden del dock** (`dock_order`): Manual (el orden que armó la persona, con el modo Mover) /
   Alfabético / Más usadas / Últimas usadas. Solo cambia lo que se *muestra* (`sortDock`); la lista manual guardada no
   se toca, así que volver a Manual recupera el orden propio. "Mover" solo aparece en Manual. El uso se registra al abrir
   una app desde el launcher (`recordUse`: `use_count` y `use_last`), es propio de cada caja y **no se exporta**; con

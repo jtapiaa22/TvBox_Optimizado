@@ -160,23 +160,155 @@ public class Launcher extends Activity {
         importIfRequested();
     }
 
-    /** `background.jpg` / `.png` en la carpeta externa de la app (la misma de los ajustes), o null si no hay. */
-    private java.io.File backgroundFile() {
-        java.io.File dir = getExternalFilesDir(null);
-        if (dir == null) return null;
-        for (String n : new String[]{"background.jpg", "background.jpeg", "background.png"}) {
-            java.io.File f = new java.io.File(dir, n);
-            if (f.isFile() && f.length() > 0) return f;
+    // ---- fondos propios: imagenes y videos en <carpeta de la app>/backgrounds/; "bg_file" guarda el nombre elegido
+
+    private static final String[] BG_IMAGE_EXT = {".jpg", ".jpeg", ".png"};
+    private static final String[] BG_VIDEO_EXT = {".mp4", ".m4v", ".webm", ".mkv", ".3gp"};
+
+    private static boolean hasExt(String name, String[] exts) {
+        String n = name.toLowerCase(java.util.Locale.ROOT);
+        for (String e : exts) if (n.endsWith(e)) return true;
+        return false;
+    }
+
+    private static boolean isVideo(java.io.File f) { return hasExt(f.getName(), BG_VIDEO_EXT); }
+
+    private java.io.File backgroundsDir() {
+        java.io.File base = getExternalFilesDir(null);
+        return base == null ? null : new java.io.File(base, "backgrounds");
+    }
+
+    /** Imagenes y videos disponibles, por nombre. */
+    private List<java.io.File> listBackgrounds() {
+        List<java.io.File> out = new ArrayList<>();
+        java.io.File dir = backgroundsDir();
+        java.io.File[] all = dir == null ? null : dir.listFiles();
+        if (all != null) for (java.io.File f : all) {
+            if (f.isFile() && f.length() > 0 && (hasExt(f.getName(), BG_IMAGE_EXT) || isVideo(f))) out.add(f);
         }
+        Collections.sort(out, new Comparator<java.io.File>() {
+            @Override public int compare(java.io.File a, java.io.File b) { return a.getName().compareToIgnoreCase(b.getName()); }
+        });
+        return out;
+    }
+
+    /** El fondo elegido (`bg_file`), o null si no hay ninguno elegido o el archivo ya no existe. */
+    private java.io.File selectedBackground() {
+        String name = prefs.getString("bg_file", "");
+        if (name == null || name.isEmpty()) return null;
+        for (java.io.File f : listBackgrounds()) if (f.getName().equals(name)) return f;
         return null;
+    }
+
+    private void showBackgroundChooser() {
+        final List<java.io.File> files = listBackgrounds();
+        if (files.isEmpty()) {
+            Toast.makeText(this, "Copia imagenes o videos a Android/data/" + getPackageName() + "/files/backgrounds/",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        String cur = prefs.getString("bg_file", "");
+        final String[] names = new String[files.size() + 1];
+        names[0] = "Ninguno";
+        int checked = 0;
+        for (int i = 0; i < files.size(); i++) {
+            names[i + 1] = (isVideo(files.get(i)) ? "▶ " : "") + files.get(i).getName();
+            if (files.get(i).getName().equals(cur)) checked = i + 1;
+        }
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Fondo (▶ = video)")
+                .setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dlg, int which) {
+                        prefs.edit().putString("bg_file", which == 0 ? "" : files.get(which - 1).getName()).apply();
+                        dlg.dismiss();
+                        recreate();
+                    }
+                }).show();
+    }
+
+    // ---- video de fondo: TextureView + MediaPlayer, sin sonido y en bucle. Se pausa con el launcher pausado (el panel de
+    // Ajustes es translucido) y se libera en onStop, para no dejar el decodificador de una caja de 1 GB ocupado.
+
+    private android.view.TextureView videoView;
+    private android.graphics.SurfaceTexture videoTex;
+    private android.view.Surface videoSurface;
+    private android.media.MediaPlayer player;
+    private java.io.File videoFile;
+    private boolean active;
+    private int videoW, videoH;
+
+    private void setupVideo(java.io.File f) {
+        videoFile = f;
+        videoView = new android.view.TextureView(this);
+        videoView.setSurfaceTextureListener(new android.view.TextureView.SurfaceTextureListener() {
+            @Override public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture st, int w, int h) {
+                videoTex = st;
+                startVideo();
+            }
+            @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) { fitVideo(); }
+            @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
+                releasePlayer();
+                videoTex = null;
+                return true;
+            }
+            @Override public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture st) { }
+        });
+        root.addView(videoView, new FrameLayout.LayoutParams(-1, -1));
+    }
+
+    private void startVideo() {
+        if (videoFile == null || videoTex == null || !active) return;
+        if (player != null) { // ya existe (venia pausado): solo se reanuda
+            try { player.start(); } catch (Throwable ignored) { releasePlayer(); }
+            return;
+        }
+        try {
+            android.media.MediaPlayer mp = new android.media.MediaPlayer();
+            player = mp;
+            videoSurface = new android.view.Surface(videoTex);
+            mp.setSurface(videoSurface);
+            mp.setDataSource(videoFile.getPath());
+            mp.setLooping(true);
+            mp.setVolume(0f, 0f);
+            mp.setOnVideoSizeChangedListener(new android.media.MediaPlayer.OnVideoSizeChangedListener() {
+                @Override public void onVideoSizeChanged(android.media.MediaPlayer m, int w, int h) { videoW = w; videoH = h; fitVideo(); }
+            });
+            mp.setOnPreparedListener(new android.media.MediaPlayer.OnPreparedListener() {
+                @Override public void onPrepared(android.media.MediaPlayer m) { if (active && player == m) m.start(); }
+            });
+            mp.setOnErrorListener(new android.media.MediaPlayer.OnErrorListener() {
+                @Override public boolean onError(android.media.MediaPlayer m, int what, int extra) { releasePlayer(); return true; }
+            });
+            mp.prepareAsync();
+        } catch (Throwable t) { // archivo roto o formato no soportado: el fondo queda negro, el launcher sigue
+            releasePlayer();
+        }
+    }
+
+    /** TextureView estira el video al tamano de la vista: se compensa para que llene la pantalla recortando (como CENTER_CROP). */
+    private void fitVideo() {
+        if (videoView == null || videoW <= 0 || videoH <= 0 || videoView.getWidth() <= 0) return;
+        float vw = videoView.getWidth(), vh = videoView.getHeight();
+        float videoAspect = (float) videoW / videoH, viewAspect = vw / vh;
+        android.graphics.Matrix m = new android.graphics.Matrix();
+        if (videoAspect > viewAspect) m.setScale(videoAspect / viewAspect, 1f, vw / 2, vh / 2);
+        else m.setScale(1f, viewAspect / videoAspect, vw / 2, vh / 2);
+        videoView.setTransform(m);
+    }
+
+    private void releasePlayer() {
+        if (player != null) {
+            try { player.release(); } catch (Throwable ignored) { }
+            player = null;
+        }
+        if (videoSurface != null) { videoSurface.release(); videoSurface = null; }
     }
 
     /**
      * Decodifica la imagen al tamano de la pantalla y en RGB_565 (2 bytes por pixel): estas cajas tienen 1 GB de RAM y una
      * foto de 4000x3000 en ARGB_8888 serian ~48 MB. Si algo falla (archivo roto, sin memoria) se sigue sin imagen.
      */
-    private Bitmap loadBackground() {
-        java.io.File f = backgroundFile();
+    private Bitmap loadBackground(java.io.File f) {
         if (f == null) return null;
         try {
             android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
@@ -204,6 +336,7 @@ public class Launcher extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        releasePlayer();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
     }
 
@@ -261,6 +394,8 @@ public class Launcher extends Activity {
         }
         updateWifi();
         syncHighlight();
+        active = true;
+        startVideo();
         if (stats != null) {
             stats.removeCallbacks(statsTick);
             stats.post(statsTick);
@@ -271,6 +406,14 @@ public class Launcher extends Activity {
     protected void onPause() {
         super.onPause();
         if (stats != null) stats.removeCallbacks(statsTick);
+        if (player != null) { try { player.pause(); } catch (Throwable ignored) { } } // el panel de Ajustes es translucido
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        active = false;
+        releasePlayer(); // otra app a pantalla completa: se suelta el decodificador
     }
 
     @Override
@@ -642,13 +785,18 @@ public class Launcher extends Activity {
         glowView.setBackground(glow);
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
-        Bitmap bgBmp = prefs.getBoolean("bg_on", true) ? loadBackground() : null;
+        java.io.File bgFile = selectedBackground();
+        Bitmap bgBmp = bgFile != null && !isVideo(bgFile) ? loadBackground(bgFile) : null;
+        boolean bgVideo = bgFile != null && isVideo(bgFile);
+        if (bgVideo) setupVideo(bgFile);
         if (bgBmp != null) {
             ImageView bgView = new ImageView(this);
             bgView.setScaleType(ImageView.ScaleType.CENTER_CROP);
             bgView.setImageBitmap(bgBmp);
             root.addView(bgView, new FrameLayout.LayoutParams(-1, -1));
-            View dim = new View(this); // oscurece la imagen para que los textos se lean sobre cualquier fondo
+        }
+        if (bgBmp != null || bgVideo) {
+            View dim = new View(this); // oscurece la imagen/video para que los textos se lean sobre cualquier fondo
             dim.setBackgroundColor(Color.argb(Math.round(255 * BG_DIM_ALPHA[pref("bg_dim", 2, BG_DIM_ALPHA.length)]), 0, 0, 0));
             root.addView(dim, new FrameLayout.LayoutParams(-1, -1));
         }
@@ -932,7 +1080,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_on", "bg_dim"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim"};
 
     private void showLauncherMenu() {
         final List<String> items = new ArrayList<>();
@@ -942,9 +1090,9 @@ public class Launcher extends Activity {
         items.add("Esquinas: " + CARD_CORNER_NAMES[pref("card_corners", 1, CARD_CORNER_NAMES.length)]);
         items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
         items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
-        final boolean hasBg = backgroundFile() != null;
-        items.add("Imagen de fondo: " + (!hasBg ? "no hay imagen" : prefs.getBoolean("bg_on", true) ? "Sí" : "No"));
-        if (hasBg) items.add("Oscurecer imagen: " + BG_DIM_NAMES[pref("bg_dim", 2, BG_DIM_NAMES.length)]);
+        final java.io.File cur = selectedBackground();
+        items.add("Fondo: " + (cur != null ? cur.getName() : listBackgrounds().isEmpty() ? "no hay archivos" : "Ninguno"));
+        if (cur != null) items.add("Oscurecer fondo: " + BG_DIM_NAMES[pref("bg_dim", 2, BG_DIM_NAMES.length)]);
         items.add("Exportar ajustes");
         items.add("Importar ajustes");
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -961,16 +1109,8 @@ public class Launcher extends Activity {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
                             recreate();
                         }
-                        else if (it.startsWith("Imagen de fondo")) {
-                            if (hasBg) {
-                                prefs.edit().putBoolean("bg_on", !prefs.getBoolean("bg_on", true)).apply();
-                                recreate();
-                            } else {
-                                Toast.makeText(Launcher.this, "Copia background.jpg a Android/data/" + getPackageName() + "/files/",
-                                        Toast.LENGTH_LONG).show();
-                            }
-                        }
-                        else if (it.startsWith("Oscurecer")) choose("Oscurecer imagen", "bg_dim", BG_DIM_NAMES, 2);
+                        else if (it.startsWith("Fondo:")) showBackgroundChooser();
+                        else if (it.startsWith("Oscurecer")) choose("Oscurecer fondo", "bg_dim", BG_DIM_NAMES, 2);
                         else if (it.equals("Exportar ajustes")) exportSettings();
                         else if (it.equals("Importar ajustes")) importSettings();
                     }
@@ -1063,7 +1203,16 @@ public class Launcher extends Activity {
     /** `adb shell am start -n com.jgx.launcher/.Launcher --ez import_settings true`: importa el archivo ya copiado a la caja. */
     private void importIfRequested() {
         Intent in = getIntent();
-        if (in == null || !in.getBooleanExtra("import_settings", false)) return;
+        if (in == null) return;
+        // `--es background nombre.jpg` elige un fondo de la carpeta backgrounds/ ("" = ninguno)
+        if (in.hasExtra("background")) {
+            prefs.edit().putString("bg_file", in.getStringExtra("background")).apply();
+            in.removeExtra("background");
+            scroll.post(new Runnable() {
+                @Override public void run() { recreate(); }
+            });
+        }
+        if (!in.getBooleanExtra("import_settings", false)) return;
         in.removeExtra("import_settings"); // recreate() reusa este intent: sin esto se importaria en bucle
         scroll.post(new Runnable() {
             @Override public void run() { importSettings(); }

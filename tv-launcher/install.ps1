@@ -6,7 +6,8 @@
          .\install.ps1 192.168.1.4 -LauncherOriginal <paquete>    # desactiva ESE paquete (el que elijas de la lista)
          .\install.ps1 192.168.1.4 -SoloDetectar                  # solo muestra los candidatos: no compila ni instala
          .\install.ps1 192.168.1.4 -Ajustes ajustes.json          # ademas importa un archivo de ajustes (dock, ocultas...)
-         .\install.ps1 192.168.1.4 -Fondo foto.jpg                # ademas deja una imagen de fondo (jpg o png)
+         .\install.ps1 192.168.1.4 -Fondo carpeta                 # ademas copia fondos (jpg/png/mp4...; archivos o carpeta)
+                                                                  #   y deja puesto el primero; despues se elige en Personalizar
 
   El archivo de ajustes sale de la propia caja: mantener OK sobre una app > Personalizar launcher > Exportar ajustes, y
   luego `adb pull /sdcard/Android/data/com.jgx.launcher/files/launcher-settings.json`. Importarlo en otra caja deja el
@@ -22,7 +23,7 @@ param(
     [switch]$DesactivarOriginal,
     [switch]$SoloDetectar,
     [string]$Ajustes = "",
-    [string]$Fondo = ""
+    [string[]]$Fondo = @()
 )
 $nuestro = 'com.jgx.launcher'
 # Paquetes que responden a HOME pero NO son un launcher que reemplazar (respaldo del sistema mientras no hay Home)
@@ -83,24 +84,30 @@ if ($objetivo) {
 
 if ($Ajustes -or $Fondo) {
     if ($Ajustes -and -not (Test-Path $Ajustes)) { throw "No existe el archivo de ajustes: $Ajustes" }
-    if ($Fondo -and -not (Test-Path $Fondo)) { throw "No existe la imagen de fondo: $Fondo" }
+    foreach ($f in $Fondo) { if (-not (Test-Path $f)) { throw "No existe el fondo: $f" } }
     $dest = '/sdcard/Android/data/com.jgx.launcher/files'
     & $adb -s $s shell am start -n "$nuestro/.Launcher" | Out-Null   # la primera vez crea la carpeta de la app
     Start-Sleep 3
     & $adb -s $s shell "mkdir -p $dest"
+    $primerFondo = $null
     if ($Fondo) {
-        $ext = [IO.Path]::GetExtension($Fondo).ToLower()
-        if ($ext -notin '.jpg', '.jpeg', '.png') { throw "La imagen de fondo debe ser .jpg o .png (es $ext)" }
-        & $adb -s $s shell "rm -f $dest/background.jpg $dest/background.jpeg $dest/background.png"   # solo vale una
-        & $adb -s $s push $Fondo "$dest/background$ext"
-        Write-Host "Imagen de fondo copiada: $Fondo" -ForegroundColor Green
+        $ok = '.jpg', '.jpeg', '.png', '.mp4', '.m4v', '.webm', '.mkv', '.3gp'
+        $archivos = @(foreach ($f in $Fondo) { if (Test-Path $f -PathType Container) { Get-ChildItem $f -File } else { Get-Item $f } }) |
+            Where-Object { $ok -contains $_.Extension.ToLower() }
+        if (-not $archivos) { throw "No hay imagenes ni videos validos en: $Fondo (se aceptan $($ok -join ' '))" }
+        & $adb -s $s shell "mkdir -p $dest/backgrounds"
+        foreach ($a in $archivos) {
+            & $adb -s $s push $a.FullName "$dest/backgrounds/$($a.Name)" | Out-Null
+            Write-Host "Fondo copiado: $($a.Name)" -ForegroundColor Green
+        }
+        $primerFondo = $archivos[0].Name
     }
     if ($Ajustes) {
         & $adb -s $s push $Ajustes "$dest/launcher-settings.json"
-        & $adb -s $s shell am start -n "$nuestro/.Launcher" --ez import_settings true | Out-Null
+        $extra = @(); if ($primerFondo) { $extra = '--es', 'background', $primerFondo }   # elige el primero (se cambia en Personalizar)
+        & $adb -s $s shell am start -n "$nuestro/.Launcher" --ez import_settings true @extra | Out-Null
         Write-Host "Ajustes importados desde $Ajustes" -ForegroundColor Green
-    } else {
-        & $adb -s $s shell am force-stop $nuestro     # que lea la imagen al volver a abrirse
-        & $adb -s $s shell input keyevent KEYCODE_HOME
+    } elseif ($primerFondo) {
+        & $adb -s $s shell am start -n "$nuestro/.Launcher" --es background $primerFondo | Out-Null
     }
 }
