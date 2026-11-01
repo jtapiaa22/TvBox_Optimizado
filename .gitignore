@@ -1,5 +1,7 @@
 ﻿tv-launcher/build/
 *.keystore
 *.apk
+# Excepción: copia de Downloader 1.5.1 (ver apps/downloader-1.5.1/README.md)
+!apps/downloader-1.5.1/*.apk
 *.png
 

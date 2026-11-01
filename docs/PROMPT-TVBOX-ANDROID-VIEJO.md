@@ -73,6 +73,8 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
   1. **Instalar Downloader primero**: es la forma de instalar apps sin Play Store. Versión decidida:
      **1.5.1-ForGoogleAndroidDevices (código 62)**, liviana y rápida. Viene como `.xapk`: se instala con
      `adb install-multiple -r` del APK principal más la pieza de densidad de la caja (`config.mdpi` a 160 dpi) y los idiomas.
+     Las piezas y un instalador están en `apps/downloader-1.5.1/` (`instalar-downloader.ps1 -Ip <ip>`; con
+     `-DesinstalarSiHaceFalta` reemplaza un Downloader más nuevo).
   2. **Si la caja ya trae otro Downloader (por ejemplo más nuevo) y da errores**, desinstalarlo
      (`pm uninstall com.esaba.downloader`) e instalar el 1.5.1: Android no permite bajar de versión con `install -r`
      (`INSTALL_FAILED_VERSION_DOWNGRADE`); `-d` solo sirve en firmware depurable. Se pierden los ajustes de Downloader.

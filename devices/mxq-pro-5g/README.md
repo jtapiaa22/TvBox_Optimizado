@@ -73,6 +73,9 @@ piezas de idioma y densidad). Se instala con las piezas que corresponden a la ca
 ```
 adb install-multiple -r com.esaba.downloader.apk config.mdpi.apk config.es.apk config.en.apk
 ```
+Las piezas originales (sin `.xapk`, con su firma intacta) y un instalador que elige la densidad de cada caja están en
+[`apps/downloader-1.5.1/`](../../apps/downloader-1.5.1/README.md): `.\instalar-downloader.ps1 -Ip <ip>`.
+
 **Si la caja ya trae otro Downloader (por ejemplo uno más nuevo) y da errores:** desinstalarlo
 (`adb shell pm uninstall com.esaba.downloader`) e instalar el 1.5.1. Con `install -r` Android no deja bajar de versión
 (`INSTALL_FAILED_VERSION_DOWNGRADE`); `install -r -d` solo funciona en firmware `userdebug`/depurable. Al desinstalar se
