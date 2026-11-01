@@ -78,6 +78,8 @@ public class Launcher extends Activity {
     private static final int[] CARD_CORNER_DP = {4, 16, 28};
     private static final String[] CARD_ZOOM_NAMES = {"Sin zoom", "Suave", "Normal", "Grande"};
     private static final float[] CARD_ZOOM_SCALE = {1f, 1.05f, 1.1f, 1.2f};
+    // Orden del dock: Manual respeta el orden que la persona armo (Mover a la izquierda/derecha); los demas lo ordenan solos
+    private static final String[] ORDER_NAMES = {"Manual", "Alfabético", "Más usadas", "Últimas usadas"};
 
     private static class Entry {
         String pkg, label;
@@ -92,6 +94,8 @@ public class Launcher extends Activity {
     private int tileW, tileH, bandH, hlPad, cardRadius;   // calculados en onCreate desde las preferencias de tarjetas
     private float zoom;
     private boolean glowOn;
+    private int order;
+    private boolean usedDirty;   // se abrio una app con orden por uso: al volver hay que reordenar
     private FrameLayout content;
     private ScrollView scroll;
     private View hl;
@@ -135,6 +139,7 @@ public class Launcher extends Activity {
         zoom = CARD_ZOOM_SCALE[pref("card_zoom", 2, CARD_ZOOM_SCALE.length)];
         hlPad = Math.max(HL_PAD, (int) Math.ceil((zoom - 1) * tileW / 2) + 8);   // el vidrio abarca la tarjeta ya ampliada
         glowOn = prefs.getBoolean("glow", true);
+        order = pref("dock_order", 0, ORDER_NAMES.length);
         build();
 
         pkgReceiver = new BroadcastReceiver() {
@@ -202,6 +207,16 @@ public class Launcher extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (usedDirty) {
+            // al volver de una app, "Más usadas" / "Últimas usadas" se reordenan. Se hace en onResume y no en onRestart
+            // porque el panel de Ajustes de Android TV es translucido: el launcher se pausa pero nunca se detiene.
+            // onNewIntent ya dejo guardado como "ultimo" el primer tile del orden VIEJO: se descarta para que el foco
+            // caiga en el primero del nuevo.
+            usedDirty = false;
+            prefs.edit().remove("last").apply();
+            recreate();
+            return;
+        }
         updateWifi();
         syncHighlight();
         if (stats != null) {
@@ -488,6 +503,7 @@ public class Launcher extends Activity {
         }
         // una app desinstalada (o desactivada) no puede quedar anotada en el dock: ocuparia un lugar invisible
         if (!kept.equals(dockPkgs())) storeDock(kept);
+        sortDock(dock);
         dockEntries = dock;
 
         scroll = new ScrollView(this) {
@@ -693,7 +709,51 @@ public class Launcher extends Activity {
     }
 
     private void launch(Entry e) {
+        recordUse(e.pkg);
+        usedDirty = order >= 2;
         start(e.intent);
+    }
+
+    // ---- uso de las apps (para ordenar el dock por "Más usadas" / "Últimas usadas"); es propio de cada caja y no se exporta
+
+    private Map<String, Long> readUse(String key) {
+        Map<String, Long> m = new HashMap<>();
+        for (String p : prefs.getString(key, "").split(",")) {
+            int i = p.lastIndexOf('=');
+            if (i <= 0) continue;
+            try { m.put(p.substring(0, i), Long.parseLong(p.substring(i + 1))); } catch (NumberFormatException ignored) { }
+        }
+        return m;
+    }
+
+    private void writeUse(String key, Map<String, Long> m) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Long> en : m.entrySet()) sb.append(sb.length() > 0 ? "," : "").append(en.getKey()).append('=').append(en.getValue());
+        prefs.edit().putString(key, sb.toString()).apply();
+    }
+
+    private void recordUse(String pkg) {
+        Map<String, Long> n = readUse("use_count"), l = readUse("use_last");
+        Long c = n.get(pkg);
+        n.put(pkg, c == null ? 1L : c + 1);
+        l.put(pkg, System.currentTimeMillis());
+        writeUse("use_count", n);
+        writeUse("use_last", l);
+    }
+
+    /** Ordena la lista que se muestra; la lista guardada (orden manual) no se toca. El orden es estable: los empates conservan el manual. */
+    private void sortDock(List<Entry> dock) {
+        if (order == 0) return;
+        final Map<String, Long> n = readUse("use_count"), l = readUse("use_last");
+        final int mode = order;
+        Collections.sort(dock, new Comparator<Entry>() {
+            @Override public int compare(Entry a, Entry b) {
+                if (mode == 1) return a.label.compareToIgnoreCase(b.label);
+                Map<String, Long> m = mode == 2 ? n : l;
+                Long x = m.get(a.pkg), y = m.get(b.pkg);
+                return Long.compare(y == null ? 0 : y, x == null ? 0 : x); // mayor primero
+            }
+        });
     }
 
     // ---- editable dock (saved as a comma separated package list; defaults to DOCK)
@@ -753,11 +813,12 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order"};
 
     private void showLauncherMenu() {
         final List<String> items = new ArrayList<>();
         if (!prefs.getStringSet("hidden", new HashSet<String>()).isEmpty()) items.add("Apps ocultas…");
+        items.add("Orden del dock: " + ORDER_NAMES[order]);
         items.add("Tamaño de las tarjetas: " + CARD_SIZE_NAMES[pref("card_size", 1, CARD_SIZE_NAMES.length)]);
         items.add("Esquinas: " + CARD_CORNER_NAMES[pref("card_corners", 1, CARD_CORNER_NAMES.length)]);
         items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
@@ -770,6 +831,7 @@ public class Launcher extends Activity {
                     @Override public void onClick(DialogInterface dlg, int which) {
                         String it = items.get(which);
                         if (it.startsWith("Apps ocultas")) showHiddenApps();
+                        else if (it.startsWith("Orden")) choose("Orden del dock", "dock_order", ORDER_NAMES, 0);
                         else if (it.startsWith("Tamaño")) choose("Tamaño de las tarjetas", "card_size", CARD_SIZE_NAMES, 1);
                         else if (it.startsWith("Esquinas")) choose("Esquinas", "card_corners", CARD_CORNER_NAMES, 1);
                         else if (it.startsWith("Zoom")) choose("Zoom al enfocar", "card_zoom", CARD_ZOOM_NAMES, 2);
@@ -843,7 +905,7 @@ public class Launcher extends Activity {
             org.json.JSONObject o = new org.json.JSONObject(sb.toString());
             SharedPreferences.Editor ed = prefs.edit();
             for (String k : SETTING_KEYS) {
-                if (!o.has(k)) continue;
+                if (!o.has(k)) { ed.remove(k); continue; } // lo que el archivo no trae vuelve a su valor por defecto
                 Object v = o.get(k);
                 if (v instanceof org.json.JSONArray) {
                     Set<String> s = new HashSet<>();
@@ -978,8 +1040,10 @@ public class Launcher extends Activity {
         final List<String> items = new ArrayList<>();
         final List<String> dl = dockPkgs();
         final int di = dl.indexOf(e.pkg);
-        if (di > 0) items.add("Mover a la izquierda");
-        if (di >= 0 && di < dl.size() - 1) items.add("Mover a la derecha");
+        if (order == 0) { // mover solo tiene sentido con el orden manual
+            if (di > 0) items.add("Mover a la izquierda");
+            if (di >= 0 && di < dl.size() - 1) items.add("Mover a la derecha");
+        }
         if (dl.size() > 1) items.add("Ocultar");
         items.add("Personalizar launcher…");
         items.add("Información de la app");

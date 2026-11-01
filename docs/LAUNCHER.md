@@ -75,6 +75,13 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 ## Personalizar launcher y ajustes exportables
 - Se abre con mantener OK sobre cualquier app o sobre el botón "Ajustes" de arriba. Es un menú (`showLauncherMenu`)
   al que se le van sumando opciones. Cada una guarda un índice o booleano en las preferencias y rearma la pantalla.
+- **Orden del dock** (`dock_order`): Manual (el orden que armó la persona, con "Mover a la izquierda/derecha") /
+  Alfabético / Más usadas / Últimas usadas. Solo cambia lo que se *muestra* (`sortDock`); la lista manual guardada no
+  se toca, así que volver a Manual recupera el orden propio. "Mover" solo aparece en Manual. El uso se registra al abrir
+  una app desde el launcher (`recordUse`: `use_count` y `use_last`), es propio de cada caja y **no se exporta**; con
+  orden por uso, `onResume` reordena al volver (no `onRestart`: el panel de Ajustes de Android TV es translúcido y el
+  launcher nunca llega a detenerse) y descarta `last` para que el foco caiga en el primer tile del nuevo orden.
+  Los empates conservan el orden manual (la ordenación es estable).
 - **Tarjetas** (se calculan en `onCreate` antes de `build()`; los valores por defecto reproducen el diseño original):
   - Tamaño (`card_size`): Pequeño 0.85× / Normal / Grande 1.15× sobre 240×135 dp; la banda del dock crece con la
     tarjeta (`bandH = tileH + 61`).
@@ -87,7 +94,8 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
   (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan
   las preferencias de `SETTING_KEYS` (dock y ocultas); `known` y `last` dependen de cada caja y no se exportan.
 - **Importar ajustes** lee ese archivo, borra `known` (las apps de esta caja que el archivo no menciona se reubican
-  solas al final del dock) y recrea la pantalla. Los paquetes del archivo que la caja no tenga se descartan solos.
+  solas al final del dock) y recrea la pantalla. Una clave de `SETTING_KEYS` que el archivo no trae **vuelve a su valor
+  por defecto** (así un archivo viejo, anterior a una opción nueva, no deja a medias los ajustes actuales de la caja). Los paquetes del archivo que la caja no tenga se descartan solos.
 - Para otra caja: `install.ps1 <ip> -Ajustes archivo.json` copia el archivo y lo importa con
   `am start -n com.jgx.launcher/.Launcher --ez import_settings true` (el launcher consume el extra una sola vez).
 - Probado en la MXQ Pro 5G: exportar desde el menú, cambiar el orden del dock en el JSON, importarlo por intent (el
