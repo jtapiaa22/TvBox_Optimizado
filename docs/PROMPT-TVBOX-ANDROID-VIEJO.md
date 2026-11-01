@@ -49,7 +49,7 @@ Lee `docs/LAUNCHER.md` y `docs/PROMPT-TVBOX-ANDROID-VIEJO.md` (este archivo) ant
 Carpeta `tv-backup/`: `pm list packages -f`, `pm list packages -d`, `getprop`, `settings list system|secure|global`
 y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líneas a medida que se desactiva).
 
-### 3. Debloat (solo `pm disable-user --user 0`, nunca desinstalar de sistema)
+### 3. Debloat (primero `pm disable-user --user 0`; quitar del todo solo con respaldo y confirmación)
 - Clasifica los paquetes: telemetría/OTA del fabricante, apps de prueba de fábrica, apps preinstaladas inútiles,
   servicios de cast/mirroring, streaming.
 - En la MXQ Pro 5G se desactivó: `com.adups.fota` (telemetría Adups), `com.rockchip.devicetest`,

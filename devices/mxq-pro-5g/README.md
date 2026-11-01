@@ -89,6 +89,23 @@ abierta). El script `play-services.ps1` ya lo avisa y se niega si no hay Downloa
 firmware, dio cifras sin sentido tras apagar Google (más de 1 GB libre en una caja de 1 GB). Para comparar memoria usar el
 PSS por proceso de `dumpsys meminfo`.
 
+## Pendiente, no aplicado o descartado
+Medido en esta caja el 2026-11-01 (1 GB reales, 4 núcleos, sin swap, `eth0` presente):
+- **Cable de red**: la caja tiene puerto Ethernet (`eth0`, hoy sin cable). El Wi-Fi es el chip SV6051P de 2,4 GHz
+  (43-72 Mbps) y su driver gasta ~8 % de CPU; con cable se evita. No aplicado: depende de que el usuario conecte un cable.
+- **zram**: el kernel trae `/sys/block/zram0`, pero un swap comprimido que sobreviva a los reinicios obliga a tocar la
+  partición del sistema y, si falla, la caja puede no arrancar. **No se aplicó.** Hace falta una vía de recuperación
+  (maskrom/imagen de fábrica) antes de intentarlo.
+- **WebView 114**: ninguna app lo usaba en reposo; se instaló para sitios modernos. Si no hace falta, vuelve al 55 con
+  `adb shell pm uninstall com.google.android.webview`. Más pesado y no se midió su efecto en velocidad.
+- **Más de 1 GB de "RAM libre"** (contador del launcher) tras apagar Google: el firmware falsea `/proc/meminfo`; comparar con
+  el PSS por proceso (`dumpsys meminfo`).
+- **Firmware de reemplazo**: no se recomienda (1 GB, 32 bits, kernel 3.10). La ROM de la lista de MaxMod más parecida es
+  Android 7.1.2, el mismo que ya tiene; las de Android 8.1/10 son de otra placa o Wi-Fi. No se flasheó nada.
+- **`restore.ps1` sin probar**: vuelve a copiar a `/system` las apps borradas desde el respaldo, pero nunca se ejecutó.
+- **ADB sin autorización** (`ro.adb.secure=0`): cualquiera en la red puede abrir una shell. Cerrarlo al terminar
+  (depuración USB desactivada + reinicio) rompe `tools/ver-tvbox`, que lo necesita.
+
 ## Cerrar ADB al terminar
 Con `ro.adb.secure=0` cualquiera en la red puede abrir una shell. En la caja: Ajustes → Opciones de
 desarrollador → desactivar Depuración USB y reiniciar. Comprobar que el puerto 5555 rechaza la conexión.
