@@ -74,6 +74,10 @@ adb connect 192.168.1.X:5555
 Antes de instalar, edita la constante `DOCK` de `tv-launcher/src/com/jgx/launcher/Launcher.java` con los paquetes
 de tus apps. Para volver atrás en una caja: `devices/<modelo>/restore.ps1`.
 
+`install.ps1` busca solo el launcher original de la caja (las apps que responden a HOME), te lo **muestra** y no desactiva
+nada si no se lo pides: `.\tv-launcher\install.ps1 <ip> -LauncherOriginal <paquete>` (o `-DesactivarOriginal` si hay uno solo).
+`-SoloDetectar` solo lista los candidatos, sin compilar ni instalar. Es reversible con `adb shell pm enable <paquete>`.
+
 ## Aviso
 Modificar el firmware/paquetes de un dispositivo es bajo tu responsabilidad. Lo que se desactiva es reversible
 (`pm enable`); lo que se borra de `/system` solo se recupera con el respaldo que hagas antes (el `restore.ps1` que lo

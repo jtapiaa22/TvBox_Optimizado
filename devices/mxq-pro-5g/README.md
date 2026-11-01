@@ -53,6 +53,9 @@ edítalas si cambia.
 IPTV JGX (`com.jgx.iptv`), Downloader (`com.esaba.downloader`), Play Store (`com.android.vending`) y Ajustes
 (`com.android.tv.settings`), más lo que se agregue desde el propio launcher (mantener OK sobre una app).
 
+Instalación en esta caja: `.\tv-launcher\install.ps1 192.168.1.4 -LauncherOriginal com.droidlogic.mboxlauncher`
+(el launcher original de la MXQ Pro 5G; en otro modelo el instalador te muestra el candidato).
+
 ## Play Store y Play Services apagados + Downloader 1.5.1 (2026-11-01)
 Es el mayor ahorro de RAM: Play Services pesaba ~167 MB y Play Store ~137 MB de los 1 GB reales. Se **deshabilitan**
 (no se borran) con `play-services.ps1 off`: `com.android.vending`, `com.google.android.gms`,

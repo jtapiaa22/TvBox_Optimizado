@@ -98,6 +98,8 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
   `cmd package set-home-activity com.jgx.launcher/.Launcher`. Comprueba con
   `dumpsys activity activities | grep mResumedActivity` que Home abre de verdad el nuevo (en algunos
   firmwares `set-home-activity` dice `Success` y no cambia nada).
+- `tv-launcher\install.ps1 <ip>` ya hace esa búsqueda y te muestra los candidatos sin desactivar nada (`-SoloDetectar` solo
+  lista; `-LauncherOriginal <paquete>` desactiva el que elijas). Muéstrale la lista al usuario antes de desactivar.
 - Antes de desactivar el launcher original, mira quién más reclama HOME:
   `cmd package query-activities -a android.intent.action.MAIN -c android.intent.category.HOME`. En la MXQ el
   original es `com.droidlogic.mboxlauncher` (el de Rockchip/Amlogic suele llamarse similar) y queda
