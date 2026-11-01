@@ -5,3 +5,6 @@
 !apps/downloader-1.5.1/*.apk
 *.png
 
+
+# Extra personal: la animacion de arranque armada (24 MB) no se sube
+tools/bootanimation-messi/*.zip
