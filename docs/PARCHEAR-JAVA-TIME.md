@@ -42,10 +42,26 @@ es un reempaquetado de una app ajena, la firma cambia y puede haber otros fallos
 5. **Instalar y probar**: desinstala la original, instala la parcheada, abre la app, entra a la pantalla que fallaba
    y mira `adb logcat`.
 
+## Importante: parchea solo las clases afectadas (versión híbrida)
+Convertir **toda** la app con enjarify rompió la reproducción de video: el lector de manifiestos DASH de Media3
+fallaba con `IllegalArgumentException: Illegal Capacity: -2147483648` (una traducción incorrecta de enjarify,
+que es un convertidor "mejor esfuerzo"). La app original reproducía bien, así que el error lo introdujo el parche.
+Lo que funcionó:
+1. Del jar de enjarify, selecciona solo las clases cuyo bytecode contiene `java/time/` (en la app de ejemplo, 56
+   de 44 875; unas 120 KB) y guárdalas en un `subset.jar`.
+2. `d8 ... --desugared-lib desugar.json --classpath <jar-completo> --output dexsub subset.jar`.
+3. Arma el APK con este orden de dex: `classes.dex` = el subconjunto parcheado, `classes2..N.dex` = los dex
+   **originales** sin tocar, y el dex de L8 como último. Android carga la primera definición de cada clase, así
+   que las 56 parcheadas ganan y el resto del código es el original. (Las copias viejas quedan sombreadas.)
+4. Prueba **las dos cosas**: la pantalla que se caía y la reproducción de un canal.
+Los pasos 1 a 3 de arriba siguen valiendo para generar el jar y la librería `j$`, pero en vez de usar el dex de
+toda la app, usa el híbrido.
+
 ## Comprobaciones que ayudan
 - Contar en los dex el texto `Ljava/time/LocalDate;` (debe pasar a `Lj$/time/LocalDate;`).
-- El orden importa: el primer intento (D8 directo sobre el dex) dejó todo igual; el segundo (D8 con la librería
-  incluida) rompió con recursión infinita; el tercero (enjarify + D8 + L8 aparte) funcionó.
+- Intentos en orden: (1) D8 directo sobre el dex: no cambió nada. (2) enjarify + D8 con la librería `j$` como
+  entrada: recursión infinita en `DesugarTimeZone`. (3) enjarify + D8 + L8 aparte: la pantalla de fechas
+  funcionó, pero el video no. (4) Híbrido (solo las 56 clases parcheadas + dex originales + L8): todo funciona.
 
 ## Límites
 - La app parcheada no recibe actualizaciones del autor (la firma es otra). Cada versión nueva hay que volver
