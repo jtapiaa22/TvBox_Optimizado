@@ -898,7 +898,7 @@ public class Launcher extends Activity {
             @Override public void run() { showLauncherMenu(); }
         });
         settingsPill.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { start(new Intent(Settings.ACTION_SETTINGS)); }
+            @Override public void onClick(View v) { showSettingsChoice(); }
         });
 
         stats = text("", 19, "sans-serif");
@@ -1081,6 +1081,19 @@ public class Launcher extends Activity {
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
     private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim"};
+
+    /** Boton "Ajustes" de arriba: elegir entre los ajustes de Android y los del launcher. */
+    private void showSettingsChoice() {
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Ajustes")
+                .setItems(new String[]{"Configuración de Android", "Configuración del launcher"},
+                        new DialogInterface.OnClickListener() {
+                            @Override public void onClick(DialogInterface dlg, int which) {
+                                if (which == 0) start(new Intent(Settings.ACTION_SETTINGS));
+                                else showLauncherMenu();
+                            }
+                        }).show();
+    }
 
     private void showLauncherMenu() {
         final List<String> items = new ArrayList<>();

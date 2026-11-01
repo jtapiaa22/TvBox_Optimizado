@@ -79,7 +79,9 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
   lista guardada, ocupando una posición invisible (el primer tile ofrecía "Mover a la izquierda" sin tener nada a la izquierda).
 
 ## Personalizar launcher y ajustes exportables
-- Se abre con mantener OK sobre cualquier app o sobre el botón "Ajustes" de arriba. Es un menú (`showLauncherMenu`)
+- Tres formas de entrar: (1) **clic** en el botón "Ajustes" de arriba, que ofrece "Configuración de Android" o
+  "Configuración del launcher" (`showSettingsChoice`); (2) **mantener OK** sobre ese mismo botón, que abre el menú del
+  launcher directo; (3) mantener OK sobre cualquier app > "Personalizar launcher…". Es un menú (`showLauncherMenu`)
   al que se le van sumando opciones. Cada una guarda un índice o booleano en las preferencias y rearma la pantalla.
 - **Fondos propios (imágenes y videos)**: todo lo que haya en `/sdcard/Android/data/com.jgx.launcher/files/backgrounds/`
   (`.jpg .jpeg .png` y `.mp4 .m4v .webm .mkv .3gp`) aparece en *Personalizar launcher > Fondo* (▶ marca los videos), con
