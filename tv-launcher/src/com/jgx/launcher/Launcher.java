@@ -819,7 +819,15 @@ public class Launcher extends Activity {
         c.setLayoutParams(cp);
 
         final ImageView img = new ImageView(this);
-        img.setBackground(round(e.banner ? 0xFF1C1C1E : 0xFF2A2A2E, 16));
+        if (e.banner) {
+            img.setBackground(round(0xFF1C1C1E, 16));
+        } else {
+            // sin banner: fondo con un tinte oscuro del color del icono, para que el tile no sea un rectangulo gris plano
+            int dark = Color.rgb(Color.red(e.color) * 40 / 100 + 14, Color.green(e.color) * 40 / 100 + 14, Color.blue(e.color) * 40 / 100 + 16);
+            GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{dark, 0xFF16161B});
+            bg.setCornerRadius(dp(16));
+            img.setBackground(bg);
+        }
         img.setClipToOutline(true);
         img.setOutlineProvider(new ViewOutlineProvider() {
             @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(16)); }
@@ -829,7 +837,7 @@ public class Launcher extends Activity {
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
         } else {
             img.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            img.setPadding(dp(30), dp(14), dp(30), dp(14));
+            img.setPadding(dp(36), dp(20), dp(36), dp(20));
         }
         c.addView(img, new LinearLayout.LayoutParams(dp(TILE_W), dp(TILE_H)));
 
