@@ -586,7 +586,7 @@ public class Launcher extends Activity {
     private TextView sectionTitle(String s) {
         TextView t = text(s, 22.8f, "sans-serif");
         t.setAlpha(0.85f);
-        t.setPadding(0, dp(6), 0, dp(14));
+        t.setPadding(0, dp(6), 0, dp(HL_PAD + 8)); // el vidrio sobresale HL_PAD por encima del tile: no debe pisar el titulo
         return t;
     }
 
