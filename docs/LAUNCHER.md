@@ -12,9 +12,11 @@ falta declarar `<queries>` (eso es de Android 11+); si algún día se sube el ta
 
 ## Compilación (sin Gradle)
 `build.ps1`: `aapt2 link` (solo manifiesto) → `javac --release 8` → `d8 --min-api 25` → agrega `classes.dex`
-al APK con `python zipfile` → `zipalign` → `apksigner` con un keystore de depuración (`debug.keystore`, se crea
-solo). Requisitos en el PC: Android SDK (build-tools 35 y platforms/android-35) y un JDK (se busca en
-`~/.jdks`). Las rutas están al inicio del script. Los avisos de javac/keytool/apksigner salen por stderr y
+al APK con .NET (`System.IO.Compression`; no hace falta Python) → `zipalign` → `apksigner` con un keystore de depuración
+(`debug.keystore`, se crea solo). Requisitos en el PC: Android SDK con build-tools y una plataforma de API 25 o más, y un JDK.
+El script **detecta solo** lo más nuevo que haya instalado (`ANDROID_HOME`/`ANDROID_SDK_ROOT`/ruta de Android Studio para el
+SDK; `JAVA_HOME`, `~/.jdks`, el `PATH` o el JBR de Android Studio para el JDK) y lo imprime al empezar. Probado con
+build-tools 35 y 36, plataformas android-35 y android-37.0 y un JDK 25. Los avisos de javac/keytool/apksigner salen por stderr y
 PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"` y se revisa `$LASTEXITCODE`.
 `install.ps1 [ip]` compila, instala, fija Home y desactiva el launcher original.
 

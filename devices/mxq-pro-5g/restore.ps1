@@ -2,9 +2,13 @@
 # SIN PROBAR: se escribio al borrar las apps, no se ejecuto despues. Revisa el resultado antes de fiarte.
 # Necesita el respaldo hecho antes de borrar: <respaldo>\app\<Carpeta> y <respaldo>\priv-app\<Carpeta>
 # (el respaldo con los APK no se sube a GitHub; vive en tv-backup\system-apps del PC).
-param([string]$Respaldo = "D:\Proyectos\IPTV\tv-backup\system-apps")
+param(
+  [string]$Respaldo = "D:\Proyectos\IPTV\tv-backup\system-apps",   # carpeta de TU respaldo (cambiala en otra PC)
+  [string]$Ip = "192.168.1.4"
+)
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
-$d = "192.168.1.4:5555"   # cambia la IP si es otra caja
+if (-not (Test-Path $adb)) { $c = Get-Command adb -ErrorAction SilentlyContinue; if ($c) { $adb = $c.Source } }
+$d = "${Ip}:5555"
 & $adb connect $d
 & $adb -s $d root; Start-Sleep 3; & $adb connect $d
 & $adb -s $d remount

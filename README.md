@@ -43,8 +43,28 @@ caja funciona igual sin ellos:
 - `devices/<modelo>/` — lo hecho en cada caja concreta.
 
 ## Requisitos en el PC
-Android SDK (platform-tools, build-tools 35, platforms/android-35), un JDK y Python 3 en el PATH. Las rutas
-están al inicio de `tv-launcher/build.ps1`. La caja y el PC, en la misma red, con la depuración ADB activada.
+Windows con PowerShell, Android SDK (platform-tools, build-tools y una plataforma de API 25 o más; basta con instalar
+Android Studio) y un JDK 17 o más nuevo. `tv-launcher/build.ps1` detecta solo las versiones instaladas; no hace falta Python.
+La caja y el PC, en la misma red, con la depuración ADB activada.
+
+## Empezar desde otra computadora (con una caja nueva)
+1. **Prepara el PC**: instala Android Studio (trae el SDK y un JDK) o el SDK y un JDK por separado, y `git`.
+2. **Clona el repo** y abre ahí tu asistente (Claude Code u otro con acceso a la shell):
+   ```
+   git clone https://github.com/jtapiaa22/TvBox_Optimizado.git
+   ```
+3. **En la caja**: Ajustes → Información → toca 7 veces "Número de compilación" → Opciones de desarrollador → activa la
+   depuración USB/ADB. Anota su IP (Ajustes → Red).
+4. **Dile al asistente**: "Lee `README.md` y `docs/PROMPT-TVBOX-ANDROID-VIEJO.md`. Mi caja es `<modelo>`, IP `<ip>`."
+   El prompt le indica el orden de trabajo y las reglas (chequear antes de hacer, respaldar, preguntarte antes de tocar).
+5. **Lo que NO viene en el repo y se hace de nuevo para cada caja**: el respaldo de sus paquetes y de las apps de `/system`
+   (se guarda en tu PC), la carpeta `devices/<modelo>/` con sus notas, IP y `restore.ps1`, y el dock del launcher: edita la
+   constante `DOCK` de `Launcher.java` con las apps de esa caja (la de ejemplo trae `com.jgx.iptv`, que es una app privada, y
+   Play Store, que se apaga en la optimización).
+
+Los scripts de `devices/mxq-pro-5g/` traen la IP de esa caja por defecto: pásale la de la tuya con `-Ip`
+(`play-services.ps1`, `restore.ps1`, `apps/downloader-1.5.1/instalar-downloader.ps1`). `restore.ps1` también necesita
+`-Respaldo <carpeta>` con el respaldo que hiciste de tu caja.
 
 ## Uso rápido
 ```powershell
