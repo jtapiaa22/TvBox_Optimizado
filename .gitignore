@@ -11,3 +11,7 @@ tools/bootanimation-messi/*.zip
 
 # Extra: las librerias del sistema de la caja no se suben
 tools/correccion-calidad-h264/*.so
+
+# TizenTube: APK bajado y respaldo de YouTube (los hace el instalador, no se suben)
+apps/tizentube-2.0.2/descargas/
+apps/tizentube-2.0.2/respaldo-youtube/

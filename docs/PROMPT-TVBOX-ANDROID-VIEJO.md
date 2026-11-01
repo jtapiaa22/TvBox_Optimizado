@@ -109,7 +109,20 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
   segundo se mantuvo; si pasa, repite el `pm disable-user` y reinicia otra vez. El Home preferido sobrevive.
 - Requisito mío: lo primero que se abre al encender tiene que ser el launcher (no una app).
 
-### 5. Verificación (obligatoria, con capturas)
+### 5. Pregunta final de la optimización: ¿reemplazar YouTube por TizenTube?
+Se hace **al terminar** el debloat, el Downloader y el launcher (no antes). Primero mira si la caja trae YouTube:
+`.\apps\tizentube-2.0.2\instalar-tizentube.ps1 -Ip <ip> -SoloDetectar` (busca `com.google.android.youtube.tv` y
+`com.google.android.youtube`; **no** toca YouTube Music, Kids ni YouTube TV de pago). Si hay YouTube, pregúntale **exactamente**:
+**"¿Desea reemplazar YouTube por TizenTube?"**
+- **Sí** → `.\instalar-tizentube.ps1 -Ip <ip> -ReemplazarYouTube`. El script instala TizenTube, comprueba que quedó, respalda el
+  APK de YouTube y recién entonces lo desinstala (app de sistema: `pm uninstall --user 0`, reversible con
+  `cmd package install-existing <paquete>`; app de usuario: `pm uninstall`). Si TizenTube falla, no toca YouTube.
+- **No** → instálale TizenTube igual solo si lo pide (`.\instalar-tizentube.ps1 -Ip <ip>`; no toca YouTube) o no hagas nada.
+- Si la caja **no** trae YouTube, no preguntes: ofrece instalar TizenTube y listo.
+TizenTube Cobalt es de reisxd (BSD-3-Clause). El APK pesa ~93 MB y **no está en el repo**: el script lo baja de la página
+oficial de su autor y comprueba el SHA-256 (ver `apps/tizentube-2.0.2/README.md`). Solo está probado para `armeabi-v7a`.
+
+### 6. Verificación (obligatoria, con capturas)
 `adb shell screencap -p /sdcard/a.png` + `adb pull`, y mira la imagen. Inyecta teclas con
 `adb shell input keyevent DPAD_RIGHT|DPAD_DOWN|DPAD_CENTER|KEYCODE_HOME|KEYCODE_BACK` y, para mantener OK,
 `input keyevent --longpress DPAD_CENTER`. Comprueba: foco inicial en el primer tile del dock, arriba/abajo
@@ -118,7 +131,7 @@ una fila, el vidrio alineado al volver de otra app (abre Ajustes y vuelve), men�
 **No pruebes abriendo apps con cuentas o sesión de otras personas** (Chrome abrió un inicio de sesión ajeno
 durante las pruebas): prueba la navegación con el foco o con apps inocuas (Ajustes).
 
-### 6. Entrega y cierre
+### 7. Entrega y cierre
 - Deja `README.md` con: qué se desactivó, cómo restaurar (`restore.ps1`), cómo cambiar el dock y los textos
   (`docs/LAUNCHER.md`) y cómo compilar/instalar (`install.ps1 <ip>`).
 - Al terminar: Ajustes → Opciones de desarrollador → desactiva Depuración USB/ADB, reinicia y comprueba que el

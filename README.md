@@ -24,6 +24,8 @@ Resumen de lo hecho en la MXQ Pro 5G (detalles y comandos en [`devices/mxq-pro-5
 2. **Launcher propio** (`tv-launcher/`) en lugar del original, que no se vuelve a activar al reiniciar.
 3. **Play Store y Play Services apagados** (`devices/<modelo>/play-services.ps1`): ~300 MB de RAM en una caja de 1 GB.
    Antes se instala **Downloader 1.5.1** ([`apps/downloader-1.5.1/`](apps/downloader-1.5.1/README.md)) para poder instalar apps.
+4. **Pregunta final: ¿reemplazar YouTube por TizenTube?** Si el usuario dice que sí, se instala **TizenTube**
+   ([`apps/tizentube-2.0.2/`](apps/tizentube-2.0.2/README.md)) y recién después se desinstala YouTube (con respaldo).
 
 ## Extras aparte (NO forman parte de la optimización)
 Cosas que se hicieron en el camino y sirven en casos puntuales. No hace falta nada de esto para optimizar una caja, y la
@@ -67,7 +69,7 @@ La caja y el PC, en la misma red, con la depuración ADB activada.
    Play Store, que se apaga en la optimización).
 
 Los scripts de `devices/mxq-pro-5g/` traen la IP de esa caja por defecto: pásale la de la tuya con `-Ip`
-(`play-services.ps1`, `restore.ps1`, `apps/downloader-1.5.1/instalar-downloader.ps1`). `restore.ps1` también necesita
+(`play-services.ps1`, `restore.ps1`, `apps/downloader-1.5.1/instalar-downloader.ps1`, `apps/tizentube-2.0.2/instalar-tizentube.ps1`). `restore.ps1` también necesita
 `-Respaldo <carpeta>` con el respaldo que hiciste de tu caja.
 
 ## Uso rápido
@@ -88,3 +90,4 @@ Modificar el firmware/paquetes de un dispositivo es bajo tu responsabilidad. Lo 
 vuelve a copiar **no está probado**). Haz siempre el respaldo primero y no toques paquetes críticos del sistema.
 
 `apps/downloader-1.5.1/` guarda una copia de una app de otra persona (AFTVnews): ver su README sobre la licencia.
+`apps/tizentube-2.0.2/` no guarda la app: la baja de la página de su autor (reisxd, BSD-3-Clause) y verifica su hash.

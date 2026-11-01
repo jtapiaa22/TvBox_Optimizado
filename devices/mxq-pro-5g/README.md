@@ -81,6 +81,12 @@ pierden los ajustes de Downloader, no los archivos de `/sdcard`.
 curso. Comprobación: `adb shell dumpsys activity activities | grep mResumedActivity` (si dice `com.android.vending`, está
 abierta). El script `play-services.ps1` ya lo avisa y se niega si no hay Downloader instalado.
 
+## TizenTube en lugar de YouTube (paso final de la optimización)
+Al terminar todo lo anterior se le pregunta al usuario **"¿Desea reemplazar YouTube por TizenTube?"**. En esta caja TizenTube
+(`io.gh.reisxd.tizentube.cobalt` 2.0.2, `cobalt-arm.apk` oficial, SHA-256 `FF90C6E8…D9FD2`) ya estaba instalado y **no había
+YouTube** (se sacó en la limpieza), así que no hubo nada que reemplazar. El procedimiento y el instalador están en
+[`apps/tizentube-2.0.2/`](../../apps/tizentube-2.0.2/README.md); no está probado quitar un YouTube *real* (ver su README).
+
 **Lo que no se midió bien:** el contador de "RAM libre" del launcher, que parte de `/proc/meminfo` falseado por el
 firmware, dio cifras sin sentido tras apagar Google (más de 1 GB libre en una caja de 1 GB). Para comparar memoria usar el
 PSS por proceso de `dumpsys meminfo`.
