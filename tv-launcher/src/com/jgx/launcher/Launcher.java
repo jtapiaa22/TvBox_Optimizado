@@ -69,8 +69,15 @@ public class Launcher extends Activity {
         "com.droidlogic.mboxlauncher", "com.jgx.launcher",
         "com.android.documentsui", "com.rockchip.wfd",
     };
-    private static final int TILE_W = 240, TILE_H = 135, GAP = 28, HL_PAD = 20;
-    private static final int MARGIN = 60, BAND_PAD = 30, BAND_H = 196, BAND_BOTTOM = 56;
+    private static final int TILE_W = 240, TILE_H = 135, GAP = 28, HL_PAD = 20;   // tamano "Normal" de la tarjeta
+    private static final int MARGIN = 60, BAND_PAD = 30, BAND_BOTTOM = 56;
+    // Opciones de "Personalizar launcher > Tarjetas": cada una guarda el indice elegido en las preferencias
+    private static final String[] CARD_SIZE_NAMES = {"Pequeño", "Normal", "Grande"};
+    private static final float[] CARD_SIZE_SCALE = {0.85f, 1f, 1.15f};
+    private static final String[] CARD_CORNER_NAMES = {"Rectas", "Suaves", "Muy redondeadas"};
+    private static final int[] CARD_CORNER_DP = {4, 16, 28};
+    private static final String[] CARD_ZOOM_NAMES = {"Sin zoom", "Suave", "Normal", "Grande"};
+    private static final float[] CARD_ZOOM_SCALE = {1f, 1.05f, 1.1f, 1.2f};
 
     private static class Entry {
         String pkg, label;
@@ -82,6 +89,9 @@ public class Launcher extends Activity {
 
     private float d;
     private int sw, sh;
+    private int tileW, tileH, bandH, hlPad, cardRadius;   // calculados en onCreate desde las preferencias de tarjetas
+    private float zoom;
+    private boolean glowOn;
     private FrameLayout content;
     private ScrollView scroll;
     private View hl;
@@ -117,6 +127,14 @@ public class Launcher extends Activity {
         DisplayMetrics real = new DisplayMetrics(); // tamano fisico: widthPixels/heightPixels descuentan barras del sistema
         getWindowManager().getDefaultDisplay().getRealMetrics(real);
         d = Math.min(Math.max(real.widthPixels, real.heightPixels) / 1280f, Math.min(real.widthPixels, real.heightPixels) / 720f);
+        float scale = CARD_SIZE_SCALE[pref("card_size", 1, CARD_SIZE_SCALE.length)];
+        tileW = Math.round(TILE_W * scale);
+        tileH = Math.round(TILE_H * scale);
+        bandH = tileH + 61;                       // 135 + 61 = 196 en tamano Normal
+        cardRadius = CARD_CORNER_DP[pref("card_corners", 1, CARD_CORNER_DP.length)];
+        zoom = CARD_ZOOM_SCALE[pref("card_zoom", 2, CARD_ZOOM_SCALE.length)];
+        hlPad = Math.max(HL_PAD, (int) Math.ceil((zoom - 1) * tileW / 2) + 8);   // el vidrio abarca la tarjeta ya ampliada
+        glowOn = prefs.getBoolean("glow", true);
         build();
 
         pkgReceiver = new BroadcastReceiver() {
@@ -130,6 +148,12 @@ public class Launcher extends Activity {
         f.addDataScheme("package");
         registerReceiver(pkgReceiver, f);
         importIfRequested();
+    }
+
+    /** Indice guardado de una opcion; si falta o quedo fuera de rango (archivo importado a mano) vale el por defecto. */
+    private int pref(String key, int def, int count) {
+        int v = prefs.getInt(key, def);
+        return v < 0 || v >= count ? def : v;
     }
 
     @Override
@@ -213,8 +237,8 @@ public class Launcher extends Activity {
         Rect r = new Rect(0, 0, img.getWidth(), img.getHeight());
         content.offsetDescendantRectToMyCoords(img, r);
         hl.animate().cancel();
-        hl.setX(r.left - dp(HL_PAD));
-        hl.setY(r.top - dp(HL_PAD));
+        hl.setX(r.left - dp(hlPad));
+        hl.setY(r.top - dp(hlPad));
         hl.setAlpha(1f);
         hlShown = true;
     }
@@ -499,9 +523,9 @@ public class Launcher extends Activity {
 
         // glass highlight
         hl = new View(this);
-        hl.setBackground(round(0x38FFFFFF, 22));
+        hl.setBackground(round(0x38FFFFFF, cardRadius + 6));
         hl.setAlpha(0f);
-        content.addView(hl, new FrameLayout.LayoutParams(dp(TILE_W + 2 * HL_PAD), dp(TILE_H + 2 * HL_PAD)));
+        content.addView(hl, new FrameLayout.LayoutParams(dp(tileW + 2 * hlPad), dp(tileH + 2 * hlPad)));
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -606,13 +630,13 @@ public class Launcher extends Activity {
         dockName = text("", 47.5f, "sans-serif");
         FrameLayout.LayoutParams np = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
         np.leftMargin = dp(MARGIN + BAND_PAD);
-        np.bottomMargin = dp(BAND_BOTTOM + BAND_H + 22);
+        np.bottomMargin = dp(BAND_BOTTOM + bandH + 22);
         screen.addView(dockName, np);
 
         // dock band
         LinearLayout band = new LinearLayout(this);
         band.setBackground(round(0x1EFFFFFF, 34));
-        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, dp(BAND_H), Gravity.BOTTOM | Gravity.START);
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, dp(bandH), Gravity.BOTTOM | Gravity.START);
         bp.leftMargin = dp(MARGIN);
         bp.rightMargin = dp(MARGIN); // caps the band width: with many apps the dock scrolls sideways
         bp.bottomMargin = dp(BAND_BOTTOM);
@@ -729,11 +753,15 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow"};
 
     private void showLauncherMenu() {
         final List<String> items = new ArrayList<>();
         if (!prefs.getStringSet("hidden", new HashSet<String>()).isEmpty()) items.add("Apps ocultas…");
+        items.add("Tamaño de las tarjetas: " + CARD_SIZE_NAMES[pref("card_size", 1, CARD_SIZE_NAMES.length)]);
+        items.add("Esquinas: " + CARD_CORNER_NAMES[pref("card_corners", 1, CARD_CORNER_NAMES.length)]);
+        items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
+        items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
         items.add("Exportar ajustes");
         items.add("Importar ajustes");
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -742,8 +770,28 @@ public class Launcher extends Activity {
                     @Override public void onClick(DialogInterface dlg, int which) {
                         String it = items.get(which);
                         if (it.startsWith("Apps ocultas")) showHiddenApps();
+                        else if (it.startsWith("Tamaño")) choose("Tamaño de las tarjetas", "card_size", CARD_SIZE_NAMES, 1);
+                        else if (it.startsWith("Esquinas")) choose("Esquinas", "card_corners", CARD_CORNER_NAMES, 1);
+                        else if (it.startsWith("Zoom")) choose("Zoom al enfocar", "card_zoom", CARD_ZOOM_NAMES, 2);
+                        else if (it.startsWith("Brillo")) {
+                            prefs.edit().putBoolean("glow", !glowOn).apply();
+                            recreate();
+                        }
                         else if (it.equals("Exportar ajustes")) exportSettings();
                         else if (it.equals("Importar ajustes")) importSettings();
+                    }
+                }).show();
+    }
+
+    /** Lista de opciones con la actual marcada; al elegir una se guarda su indice y se rearma la pantalla. */
+    private void choose(String title, final String key, String[] names, int def) {
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(title)
+                .setSingleChoiceItems(names, pref(key, def, names.length), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dlg, int which) {
+                        prefs.edit().putInt(key, which).apply();
+                        dlg.dismiss();
+                        recreate();
                     }
                 }).show();
     }
@@ -998,7 +1046,7 @@ public class Launcher extends Activity {
         c.setTag(e.pkg);
         c.setFocusable(true);
         c.setClickable(true);
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(dp(TILE_W), -2);
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(dp(tileW), -2);
         cp.rightMargin = dp(GAP);
         c.setLayoutParams(cp);
 
@@ -1009,12 +1057,12 @@ public class Launcher extends Activity {
             // sin banner: fondo con un tinte oscuro del color del icono, para que el tile no sea un rectangulo gris plano
             int dark = Color.rgb(Color.red(e.color) * 40 / 100 + 14, Color.green(e.color) * 40 / 100 + 14, Color.blue(e.color) * 40 / 100 + 16);
             GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{dark, 0xFF16161B});
-            bg.setCornerRadius(dp(16));
+            bg.setCornerRadius(dp(cardRadius));
             img.setBackground(bg);
         }
         img.setClipToOutline(true);
         img.setOutlineProvider(new ViewOutlineProvider() {
-            @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(16)); }
+            @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(cardRadius)); }
         });
         img.setImageDrawable(e.icon);
         if (e.banner) {
@@ -1023,7 +1071,7 @@ public class Launcher extends Activity {
             img.setScaleType(ImageView.ScaleType.FIT_CENTER);
             img.setPadding(dp(36), dp(20), dp(36), dp(20));
         }
-        c.addView(img, new LinearLayout.LayoutParams(dp(TILE_W), dp(TILE_H)));
+        c.addView(img, new LinearLayout.LayoutParams(dp(tileW), dp(tileH)));
 
         c.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { launch(e); }
@@ -1033,7 +1081,7 @@ public class Launcher extends Activity {
         });
         c.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
-                float s = has ? 1.1f : 1f;
+                float s = has ? zoom : 1f;
                 img.animate().scaleX(s).scaleY(s).setDuration(180).start();
                 if (!has) return;
                 prefs.edit().putString("last", e.pkg).apply();
@@ -1049,7 +1097,7 @@ public class Launcher extends Activity {
     private void moveHighlight(final View img) {
         final Rect r = new Rect(0, 0, img.getWidth(), img.getHeight());
         content.offsetDescendantRectToMyCoords(img, r);
-        float x = r.left - dp(HL_PAD), y = r.top - dp(HL_PAD);
+        float x = r.left - dp(hlPad), y = r.top - dp(hlPad);
         if (!hlShown) {
             hl.animate().cancel();
             hl.setX(x);
@@ -1067,6 +1115,7 @@ public class Launcher extends Activity {
      * be scrolled to once this focus change settles, so the glow lands under the tile on SCREEN (it is a fixed layer).
      */
     private void setGlow(int color, View img, int scrollY) {
+        if (!glowOn) return; // "Brillo de fondo" apagado: el fondo queda negro
         Rect r = new Rect(0, 0, img.getWidth(), img.getHeight());
         content.offsetDescendantRectToMyCoords(img, r);
         int viewH = Math.max(1, root != null && root.getHeight() > 0 ? root.getHeight() : sh);

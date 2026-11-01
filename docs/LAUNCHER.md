@@ -74,7 +74,15 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 
 ## Personalizar launcher y ajustes exportables
 - Se abre con mantener OK sobre cualquier app o sobre el botón "Ajustes" de arriba. Es un menú (`showLauncherMenu`)
-  al que se le van sumando opciones.
+  al que se le van sumando opciones. Cada una guarda un índice o booleano en las preferencias y rearma la pantalla.
+- **Tarjetas** (se calculan en `onCreate` antes de `build()`; los valores por defecto reproducen el diseño original):
+  - Tamaño (`card_size`): Pequeño 0.85× / Normal / Grande 1.15× sobre 240×135 dp; la banda del dock crece con la
+    tarjeta (`bandH = tileH + 61`).
+  - Esquinas (`card_corners`): Rectas 4 dp / Suaves 16 dp / Muy redondeadas 28 dp; el vidrio de foco usa el mismo radio + 6.
+  - Zoom al enfocar (`card_zoom`): Sin zoom / Suave 1.05× / Normal 1.1× / Grande 1.2×. El vidrio ensancha su margen
+    (`hlPad`) para seguir abarcando la tarjeta ampliada.
+  - Brillo de fondo (`glow`): sí/no; apagado deja el fondo negro puro.
+  - Un valor guardado fuera de rango (archivo editado a mano) cae al valor por defecto (`pref()`).
 - **Exportar ajustes** escribe `launcher-settings.json` en la carpeta externa propia de la app
   (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan
   las preferencias de `SETTING_KEYS` (dock y ocultas); `known` y `last` dependen de cada caja y no se exportan.
@@ -115,8 +123,8 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 
 ## Cómo cambiar cosas
 - Dock por defecto, nombres, acciones: constante `DOCK`.
-- Tamaño de tiles/banda/márgenes: constantes `TILE_W`, `TILE_H`, `BAND_H`,
-  `MARGIN`, etc. (si cambia el tamaño del tile, ajustar también `BAND_H = TILE_H + 2*BAND_PAD`).
+- Tamaño base de las tarjetas y márgenes: constantes `TILE_W`, `TILE_H`, `MARGIN`, etc. (la banda sale de
+  `bandH = tileH + 61`, calculado en `onCreate`). Los tamaños, esquinas y zooms disponibles: `CARD_*` al inicio del Java.
 - Tamaños de letra: llamadas a `text(...)` y `clock/date.setTextSize` en `build()`.
 - Fondo: `scroll.setBackgroundColor(Color.BLACK)`.
 - Restablecer preferencias del launcher (dock, ocultas, apps conocidas): `adb shell pm clear com.jgx.launcher`
