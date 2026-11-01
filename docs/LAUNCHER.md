@@ -21,8 +21,10 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 `install.ps1 [ip]` compila, instala, fija Home y desactiva el launcher original.
 
 ## Pantalla
-- Fondo negro. Arriba a la izquierda: saludo, hora grande (98.8 sp), fecha. Arriba a la derecha: botones
-  "Liberar RAM", "Wi-Fi · red · Mbps" y "Ajustes", y debajo una línea "RAM libre N MB".
+- Fondo negro con un brillo ambiental continuo (capa fija detrás del scroll) que se anima, en posición y color,
+  hacia el tile enfocado. Arriba a la izquierda: saludo, hora grande (98.8), fecha. Arriba a la derecha: botones
+  con ícono "Liberar RAM", "Wi-Fi · red · Mbps" (o "Cable" si la red activa es Ethernet) y "Ajustes", y debajo una
+  línea "RAM libre N MB". Los íconos se dibujan por código (`PillIcon`), sin recursos.
 - Dock: banda redondeada abajo con tiles de 240×135 dp; sobre el dock, el nombre de la app enfocada en grande
   y un brillo ambiental del color promedio del ícono (muestreado a 24×24 px).
 - Debajo (al bajar la pantalla se desplaza): fila "Recientes" (hasta 4) y "Todas las apps" en 4 columnas,
@@ -30,7 +32,12 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 - Un único "vidrio" (View translúcido) se desliza con resorte (`OvershootInterpolator`) entre tiles. El tile
   enfocado crece 1.1× y, en la grilla, muestra su nombre debajo.
 - Textos: Roboto del sistema con sombra suave (`setShadowLayer`) para legibilidad. No se descargó Outfit.
-- Todo en dp. La caja renderiza a 1280×720 (densidad 160) y el TV escala.
+- Escala: el diseño es de 1280×720. `d` se calcula con el tamaño físico de la pantalla (`getRealMetrics`,
+  `min(ancho/1280, alto/720)`), no con la densidad que declare el firmware; medidas y textos se multiplican por `d`.
+  En la MXQ Pro 5G vale 1.0. Con 1920×1080 simulado (`wm size`) las proporciones se mantienen.
+- Las apps sin banner usan un degradé oscuro con el tinte del color de su ícono.
+- `HIDDEN` (constante al inicio del Java) saca de la grilla y de Recientes el launcher original, este launcher y
+  utilidades que nadie abre a propósito: `com.android.documentsui` ("Descargas") y `com.rockchip.wfd` (WifiDisplay).
 
 ## Navegación determinista
 - `ScrollView` externo sobrescribe `computeScrollDeltaToGetChildRectOnScreen` (devuelve 0) y `arrowScroll`:
@@ -79,7 +86,9 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 ## Barra superior
 - RAM: `MemFree + Inactive(file)` de `/proc/meminfo` (o `MemAvailable` si el kernel lo ofrece), sin mostrar total. Hay cajas baratas que falsean `MemTotal`, `Cached` y `ActivityManager` (la MXQ Pro 5G dice 4 GB y tiene 1 GB), asi que esos valores no se usan. Se refresca cada 5 s solo mientras el launcher está
   en primer plano. Sin red.
-- Wi-Fi: SSID y `getLinkSpeed()` de `WifiManager` (permiso `ACCESS_WIFI_STATE`).
+- Red: SSID y `getLinkSpeed()` de `WifiManager` (permiso `ACCESS_WIFI_STATE`). Si `getActiveNetworkInfo()` es
+  Ethernet (permiso `ACCESS_NETWORK_STATE`) muestra "Cable" y, si existe `/sys/class/net/eth0/speed`, la velocidad.
+  La rama de cable **no se ha probado en una caja real** (la MXQ Pro 5G usa Wi-Fi).
 - Temperatura: se intenta leer `/sys/class/thermal/thermal_zone0/temp`; en la MXQ Pro 5G no es legible y no se
   muestra nada. En otras cajas puede aparecer.
 - **Liberar RAM**: `killBackgroundProcesses` sobre todos los paquetes instalados excepto el propio (permiso

@@ -111,9 +111,13 @@ public class Launcher extends Activity {
         super.onCreate(b);
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         DisplayMetrics m = getResources().getDisplayMetrics();
-        d = m.density;
         sw = m.widthPixels;
         sh = m.heightPixels;
+        // El diseno esta pensado para 1280x720: escala todo (medidas y textos) segun la pantalla real, no segun la
+        // densidad que declare el firmware (que en estas cajas es poco fiable). En 1280x720 vale 1.0.
+        DisplayMetrics real = new DisplayMetrics(); // tamano fisico: widthPixels/heightPixels descuentan barras del sistema
+        getWindowManager().getDefaultDisplay().getRealMetrics(real);
+        d = Math.min(Math.max(real.widthPixels, real.heightPixels) / 1280f, Math.min(real.widthPixels, real.heightPixels) / 720f);
         build();
 
         pkgReceiver = new BroadcastReceiver() {
@@ -431,7 +435,7 @@ public class Launcher extends Activity {
         TextView t = new TextView(this);
         t.setText(s);
         t.setTextColor(Color.WHITE);
-        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_PX, sp * d);
         t.setTypeface(Typeface.create(family, Typeface.NORMAL));
         t.setSingleLine(true);
         t.setShadowLayer(dp(4), 0, dp(2), 0xAA000000); // legibility on any glow colour
@@ -533,7 +537,7 @@ public class Launcher extends Activity {
         clock.setFormat24Hour("HH:mm");
         clock.setFormat12Hour("h:mm");
         clock.setTextColor(Color.WHITE);
-        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 98.8f);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, 98.8f * d);
         clock.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
         clock.setIncludeFontPadding(false);
         clock.setShadowLayer(dp(5), 0, dp(3), 0xAA000000);
@@ -542,7 +546,7 @@ public class Launcher extends Activity {
         date.setFormat24Hour("EEEE d 'de' MMMM");
         date.setFormat12Hour("EEEE d 'de' MMMM");
         date.setTextColor(0xF2FFFFFF);
-        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24.7f);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_PX, 24.7f * d);
         date.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
         date.setShadowLayer(dp(4), 0, dp(2), 0xAA000000);
         head.addView(date);
