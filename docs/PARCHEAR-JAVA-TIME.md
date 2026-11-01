@@ -1,5 +1,7 @@
 # Parchear una app que se cae en Android 7 por `java.time` (NoClassDefFoundError)
 
+> **No forma parte de la optimización de la caja.** Es un arreglo para una app ajena concreta que se caía; solo si te pasa.
+
 Síntoma: la app abre, pero al entrar a una pantalla se cierra. En `adb logcat`:
 
 ```

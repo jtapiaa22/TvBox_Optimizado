@@ -18,15 +18,20 @@ borrarlas de `/system`) solo con respaldo previo en el PC y confirmación del us
 No abras apps de fábrica/test, verifica con capturas, no pruebes abriendo apps con sesiones de personas, y cierra el
 ADB al terminar.
 
-## Qué incluye la optimización de una caja
+## La optimización de una caja (esto es lo que se repite en cada caja)
 Resumen de lo hecho en la MXQ Pro 5G (detalles y comandos en [`devices/mxq-pro-5g/README.md`](devices/mxq-pro-5g/README.md)):
 1. **Respaldo y debloat**: apps de fábrica, de prueba, telemetría (Adups) y navegadores se desactivan y luego se quitan.
 2. **Launcher propio** (`tv-launcher/`) en lugar del original, que no se vuelve a activar al reiniciar.
 3. **Play Store y Play Services apagados** (`devices/<modelo>/play-services.ps1`): ~300 MB de RAM en una caja de 1 GB.
    Antes se instala **Downloader 1.5.1** ([`apps/downloader-1.5.1/`](apps/downloader-1.5.1/README.md)) para poder instalar apps.
-4. **WebView actualizado** (55 → 114) cuando una app necesita páginas modernas.
-5. **Apps que se caen en Android 7 por `java.time`**: [`docs/PARCHEAR-JAVA-TIME.md`](docs/PARCHEAR-JAVA-TIME.md).
-6. **Ver la caja desde el PC con imagen y sonido** (experimental): [`tools/ver-tvbox/`](tools/ver-tvbox/README.md).
+
+## Extras aparte (NO forman parte de la optimización)
+Cosas que se hicieron en el camino y sirven en casos puntuales. No hace falta nada de esto para optimizar una caja, y la
+caja funciona igual sin ellos:
+- [`tools/ver-tvbox/`](tools/ver-tvbox/README.md): ver la pantalla de la caja en el PC, con sonido (experimental). Es una
+  herramienta para quien trabaja con la caja por ADB: no instala nada permanente en ella.
+- [`docs/PARCHEAR-JAVA-TIME.md`](docs/PARCHEAR-JAVA-TIME.md): arreglo para una app ajena que se cae en Android 7 por `java.time`.
+- WebView 55 → 114: solo si una app necesita páginas modernas (ver "Extras" en las notas de la caja). No hacía falta.
 
 ## Qué es
 - `tv-launcher/` — el launcher. Un archivo Java, UI por código, se compila con `build.ps1`

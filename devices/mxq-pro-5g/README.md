@@ -53,13 +53,6 @@ edítalas si cambia.
 IPTV JGX (`com.jgx.iptv`), Downloader (`com.esaba.downloader`), Play Store (`com.android.vending`) y Ajustes
 (`com.android.tv.settings`), más lo que se agregue desde el propio launcher (mantener OK sobre una app).
 
-## WebView actualizado (2026-10-31)
-La caja venía con Android System WebView 55 (`com.google.android.webview`, de 2016), muy viejo para sitios actuales.
-Se actualizó a la **114.0.5735.60 (arm-v7a, Android 7.0+)** bajada de APKMirror (84,28 MB) con
-`adb install -r`; coincide la firma del certificado con la del WebView de sistema (SHA-256 `6FAF3C41…BA6FE5`), por eso
-Android lo acepta como actualización. La 55 sigue en `/system`: `adb shell pm uninstall com.google.android.webview`
-vuelve a ella. Las versiones más nuevas de WebView piden Android 10 o más. No se midió el efecto en la velocidad.
-
 ## Play Store y Play Services apagados + Downloader 1.5.1 (2026-11-01)
 Es el mayor ahorro de RAM: Play Services pesaba ~167 MB y Play Store ~137 MB de los 1 GB reales. Se **deshabilitan**
 (no se borran) con `play-services.ps1 off`: `com.android.vending`, `com.google.android.gms`,
@@ -96,15 +89,13 @@ Medido en esta caja el 2026-11-01 (1 GB reales, 4 núcleos, sin swap, `eth0` pre
 - **zram**: el kernel trae `/sys/block/zram0`, pero un swap comprimido que sobreviva a los reinicios obliga a tocar la
   partición del sistema y, si falla, la caja puede no arrancar. **No se aplicó.** Hace falta una vía de recuperación
   (maskrom/imagen de fábrica) antes de intentarlo.
-- **WebView 114**: ninguna app lo usaba en reposo; se instaló para sitios modernos. Si no hace falta, vuelve al 55 con
-  `adb shell pm uninstall com.google.android.webview`. Más pesado y no se midió su efecto en velocidad.
 - **Más de 1 GB de "RAM libre"** (contador del launcher) tras apagar Google: el firmware falsea `/proc/meminfo`; comparar con
   el PSS por proceso (`dumpsys meminfo`).
 - **Firmware de reemplazo**: no se recomienda (1 GB, 32 bits, kernel 3.10). La ROM de la lista de MaxMod más parecida es
   Android 7.1.2, el mismo que ya tiene; las de Android 8.1/10 son de otra placa o Wi-Fi. No se flasheó nada.
 - **`restore.ps1` sin probar**: vuelve a copiar a `/system` las apps borradas desde el respaldo, pero nunca se ejecutó.
 - **ADB sin autorización** (`ro.adb.secure=0`): cualquiera en la red puede abrir una shell. Cerrarlo al terminar
-  (depuración USB desactivada + reinicio) rompe `tools/ver-tvbox`, que lo necesita.
+  (depuración USB desactivada + reinicio). Es el último paso de la optimización.
 
 ## Cerrar ADB al terminar
 Con `ro.adb.secure=0` cualquiera en la red puede abrir una shell. En la caja: Ajustes → Opciones de
@@ -126,3 +117,23 @@ desarrollador → desactivar Depuración USB y reiniciar. Comprobar que el puert
 - Firmware genérico `rk322x_box-userdebug 7.1.2 NHG47K eng.ROCKCHIP.20200316` con `test-keys`. `adb root`
   funciona (se usó una vez para leer `/proc/iomem` y se revirtió con `adb unroot`).
 - Conclusión: no vale la pena flashear un Android más nuevo (1 GB, 32 bits, Mali-400, kernel 3.10).
+
+## Extras (aparte de la optimización; nada de esto es necesario)
+Lo siguiente se hizo en esta caja por motivos puntuales. **La caja funciona igual sin ello**, y no forma parte del
+procedimiento para otras cajas.
+
+**WebView 55 → 114 (2026-10-31).** La caja venía con Android System WebView 55 (`com.google.android.webview`, de 2016), muy
+viejo para sitios actuales. Se actualizó a la **114.0.5735.60 (arm-v7a, Android 7.0+)** bajada de APKMirror (84,28 MB) con
+`adb install -r`; coincide la firma del certificado con la del WebView de sistema (SHA-256 `6FAF3C41…BA6FE5`), por eso
+Android lo acepta como actualización. Resultó que **no hacía falta** para lo que se buscaba (un fallo de `java.time`, no del
+WebView). La 55 sigue en `/system`: `adb shell pm uninstall com.google.android.webview` vuelve a ella. Es más pesado y no
+se midió su efecto en velocidad; ninguna app lo usaba en reposo.
+
+**Ver la caja desde el PC.** [`tools/ver-tvbox/`](../../tools/ver-tvbox/README.md): imagen y sonido por Wi-Fi para quien
+trabaja con la caja por ADB. No deja nada instalado: solo corre mientras su ventana está abierta (con root temporal por ADB,
+que se revierte al cerrar). Comprobado el 2026-11-01 que, con la ventana cerrada, la caja queda con un solo hilo de salida
+de audio, sin root y con los archivos de audio del sistema intactos. **Necesita el ADB abierto**: si lo cierras al final de la
+optimización, deja de funcionar. No se probó con una tele HDMI conectada.
+
+**Parcheo de apps ajenas por `java.time`.** [`docs/PARCHEAR-JAVA-TIME.md`](../../docs/PARCHEAR-JAVA-TIME.md): fue para que una app
+de terceros funcionara en Android 7. No es parte de la optimización.

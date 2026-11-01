@@ -1,5 +1,8 @@
 # ver-tvbox: ver la pantalla del TV box en el PC, con sonido (experimental)
 
+> **No forma parte de la optimización de la caja.** Es una herramienta aparte para quien trabaja con la caja por ADB.
+> No instala nada permanente en ella: solo corre mientras la ventana está abierta. La caja funciona igual sin esto.
+
 Para cuando no tienes una tele a mano: muestra por Wi-Fi la imagen de la caja (como una capturadora) y su sonido, usando
 solo lo que ya hay: ADB por red, `screenrecord` de la caja y `ffplay` del PC. Probado en una MXQ Pro 5G (Android 7.1.2).
 
