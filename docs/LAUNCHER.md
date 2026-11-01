@@ -8,7 +8,7 @@ AndroidX, sin Gradle, sin recursos XML: toda la UI se construye por código. Pen
 El launcher de referencia (otro repositorio) pide Android 8+ (minSdk 26). En Android 7.1 responde
 `INSTALL_FAILED_OLDER_SDK`. Se escribió uno propio con `minSdk 25 / targetSdk 25`. Al apuntar a SDK 25 no hace
 falta declarar `<queries>` (eso es de Android 11+); si algún día se sube el target a 30+, hay que declarar
-`<queries>` para `LAUNCHER` y `LEANBACK_LAUNCHER` o la grilla sale vacía.
+`<queries>` para `LAUNCHER` y `LEANBACK_LAUNCHER` o el dock sale vacío.
 
 ## Compilación (sin Gradle)
 `build.ps1`: `aapt2 link` (solo manifiesto) → `javac --release 8` → `d8 --min-api 25` → agrega `classes.dex`
@@ -27,17 +27,17 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
   línea "RAM libre N MB". Los íconos se dibujan por código (`PillIcon`), sin recursos.
 - Dock: banda redondeada abajo con tiles de 240×135 dp; sobre el dock, el nombre de la app enfocada en grande
   y un brillo ambiental del color promedio del ícono (muestreado a 24×24 px).
-- Debajo (al bajar la pantalla se desplaza): fila "Recientes" (hasta 4) y "Todas las apps" en 4 columnas,
-  ordenadas por nombre.
+- No hay grilla ni "Recientes": **todas las apps viven en el dock** (ver "Dock editable y desplazable").
 - Un único "vidrio" (View translúcido) se desliza con resorte (`OvershootInterpolator`) entre tiles. El tile
-  enfocado crece 1.1× y, en la grilla, muestra su nombre debajo.
+  enfocado crece 1.1× y su nombre se muestra grande sobre el dock.
 - Textos: Roboto del sistema con sombra suave (`setShadowLayer`) para legibilidad. No se descargó Outfit.
 - Escala: el diseño es de 1280×720. `d` se calcula con el tamaño físico de la pantalla (`getRealMetrics`,
   `min(ancho/1280, alto/720)`), no con la densidad que declare el firmware; medidas y textos se multiplican por `d`.
   En la MXQ Pro 5G vale 1.0. Con 1920×1080 simulado (`wm size`) las proporciones se mantienen.
 - Las apps sin banner usan un degradé oscuro con el tinte del color de su ícono.
-- `HIDDEN` (constante al inicio del Java) saca de la grilla y de Recientes el launcher original, este launcher y
+- `HIDDEN` (constante al inicio del Java) impide que entren solos al dock el launcher original, este launcher y
   utilidades que nadie abre a propósito: `com.android.documentsui` ("Descargas") y `com.rockchip.wfd` (WifiDisplay).
+  No es lo mismo que "Ocultar" del menú, que es una decisión de la persona y se puede deshacer desde la caja.
 
 ## Navegación determinista
 - `ScrollView` externo sobrescribe `computeScrollDeltaToGetChildRectOnScreen` (devuelve 0) y `arrowScroll`:
@@ -65,18 +65,22 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 - Sin límite de apps: `HorizontalScrollView` dentro de la banda. La banda tiene margen derecho para limitar su
   ancho. El scroll deja 34 dp de aire a cada lado del tile enfocado (`computeScrollDeltaToGetChildRectOnScreen`
   con el rectángulo ampliado) para que el vidrio quede dentro de la banda.
-- Menú al **mantener OK**: en la grilla "Agregar al dock / Ocultar / Información / Desinstalar"; en el dock
-  "Mover a la izquierda / derecha / Quitar del dock / Información / Desinstalar". Las apps del sistema no se
-  desinstalan (solo avisa). Mantener OK sobre "Ajustes" (botón superior) restaura las apps ocultas.
+- Menú al **mantener OK** sobre una app: "Mover a la izquierda / derecha", "Ocultar", "Apps ocultas…" (solo si hay
+  alguna), "Información de la app" y "Desinstalar". Las apps del sistema no se desinstalan (solo avisa).
+- "Ocultar" saca la app del dock y la guarda en `hidden`; no la desinstala. Para recuperarla, "Apps ocultas…" del
+  mismo menú, o mantener OK sobre el botón "Ajustes" de arriba: lista las ocultas y devuelve una (o "Mostrar todas")
+  al principio del dock.
 - El long-press nativo de Android no es fiable con el mando (y con `input keyevent` simulado se interpretaba
   como clic corto). Se detecta en `dispatchKeyEvent`: `DPAD_CENTER/ENTER` con `repeatCount > 0` ejecuta la
   acción larga registrada en `longActions` y se descarta el `ACTION_UP` siguiente.
 
-## Recientes y apps nuevas
-- Al abrir una app se guarda en `recent` (máx. 8; se muestran 4 que no estén en el dock). Al volver
-  (`onRestart`) el launcher se recrea si hubo cambios.
-- Un `BroadcastReceiver` de `PACKAGE_ADDED/REMOVED` recrea la pantalla; si la app es nueva (no es una
-  actualización) se coloca primero en Recientes.
+## Apps nuevas
+- `build()` guarda en `known` los paquetes lanzables que ya vio. Todo paquete lanzable que no esté en `known`, ni en el
+  dock, ni en `hidden`, ni en `HIDDEN`, entra solo **al principio** del dock (ordenados por nombre si llegan varios).
+- La primera vez que corre esta versión sobre un dock ya armado (`known` no existe), las apps que faltaban se agregan
+  al **final** para no desordenar lo que la persona ya tenía.
+- Un `BroadcastReceiver` de `PACKAGE_ADDED/REMOVED` recrea la pantalla; al desinstalar, `known` se poda solo en el
+  siguiente `build()`. Probado instalando un APK de prueba sin código: apareció al frente y, al desinstalarlo, se fue.
 
 ## Ajustes de Android TV, no de teléfono
 `Settings.ACTION_SETTINGS` y similares se resuelven en estas cajas a `com.android.settings` (aspecto de
@@ -97,11 +101,11 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 
 ## Cómo cambiar cosas
 - Dock por defecto, nombres, acciones: constante `DOCK`.
-- Columnas de la grilla: `COLS`. Tamaño de tiles/banda/márgenes: constantes `TILE_W`, `TILE_H`, `BAND_H`,
+- Tamaño de tiles/banda/márgenes: constantes `TILE_W`, `TILE_H`, `BAND_H`,
   `MARGIN`, etc. (si cambia el tamaño del tile, ajustar también `BAND_H = TILE_H + 2*BAND_PAD`).
 - Tamaños de letra: llamadas a `text(...)` y `clock/date.setTextSize` en `build()`.
 - Fondo: `scroll.setBackgroundColor(Color.BLACK)`.
-- Restablecer preferencias del launcher (dock, ocultas, recientes): `adb shell pm clear com.jgx.launcher`
+- Restablecer preferencias del launcher (dock, ocultas, apps conocidas): `adb shell pm clear com.jgx.launcher`
   (el Home preferido se conserva).
 
 ## Limitaciones conocidas

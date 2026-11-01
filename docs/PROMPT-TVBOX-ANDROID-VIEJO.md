@@ -113,7 +113,7 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
 `adb shell screencap -p /sdcard/a.png` + `adb pull`, y mira la imagen. Inyecta teclas con
 `adb shell input keyevent DPAD_RIGHT|DPAD_DOWN|DPAD_CENTER|KEYCODE_HOME|KEYCODE_BACK` y, para mantener OK,
 `input keyevent --longpress DPAD_CENTER`. Comprueba: foco inicial en el primer tile del dock, arriba/abajo
-una fila, el vidrio alineado al volver de otra app (abre Ajustes y vuelve), menú al mantener OK, Recientes,
+una fila, el vidrio alineado al volver de otra app (abre Ajustes y vuelve), menú al mantener OK (Ocultar / Apps ocultas…),
 "Liberar RAM", botón Ajustes = ajustes de Android TV (panel lateral) y no de teléfono, texto sin cortes.
 **No pruebes abriendo apps con cuentas o sesión de otras personas** (Chrome abrió un inicio de sesión ajeno
 durante las pruebas): prueba la navegación con el foco o con apps inocuas (Ajustes).
@@ -140,6 +140,6 @@ durante las pruebas): prueba la navegación con el foco o con apps inocuas (Ajus
 4. El firmware puede reactivar el launcher original tras el primer reinicio.
 5. La ventana mide menos que la pantalla (barras del sistema): no asumir 720 de alto.
 6. En PowerShell, los avisos de las herramientas por stderr se ven como errores; revisar códigos de salida.
-7. `pm clear com.jgx.launcher` borra dock/recientes/ocultas (el Home preferido se conserva).
+7. `pm clear com.jgx.launcher` borra dock/ocultas/apps conocidas (el Home preferido se conserva).
 
 

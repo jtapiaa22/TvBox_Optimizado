@@ -54,7 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Apple TV style launcher: black background, dock of four apps, grid below, one glass highlight. */
+/** Apple TV style launcher: ambient glow, one scrolling dock with every app, one glass highlight. */
 public class Launcher extends Activity {
     // package, label override (null = app label), fallback action when the package has no launcher entry
     private static final String[][] DOCK = {
@@ -63,13 +63,12 @@ public class Launcher extends Activity {
         {"com.android.vending", null, null},
         {"com.android.tv.settings", "Ajustes", Settings.ACTION_SETTINGS},
     };
-    // No se muestran en la grilla ni en Recientes: el launcher original, este mismo launcher y utilidades de sistema que
-    // nadie abre a proposito (explorador "Descargas" de Android y WifiDisplay de Rockchip). Quita una linea para verlas.
+    // No entran solas al dock: el launcher original, este mismo launcher y utilidades de sistema que nadie abre a
+    // proposito (explorador "Descargas" de Android y WifiDisplay de Rockchip). Quita una linea para verlas.
     private static final String[] HIDDEN = {
         "com.droidlogic.mboxlauncher", "com.jgx.launcher",
         "com.android.documentsui", "com.rockchip.wfd",
     };
-    private static final int COLS = 4;
     private static final int TILE_W = 240, TILE_H = 135, GAP = 28, HL_PAD = 20;
     private static final int MARGIN = 60, BAND_PAD = 30, BAND_H = 196, BAND_BOTTOM = 56;
 
@@ -99,7 +98,7 @@ public class Launcher extends Activity {
     private final List<View> dockCells = new ArrayList<>();
     private SharedPreferences prefs;
     private BroadcastReceiver pkgReceiver;
-    private boolean recentsDirty, longHandled;
+    private boolean longHandled;
     private List<Entry> dockEntries = new ArrayList<>();
     private TextView stats;
     private final Map<View, Runnable> longActions = new HashMap<>();
@@ -122,12 +121,7 @@ public class Launcher extends Activity {
 
         pkgReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context c, Intent i) {
-                // a freshly installed app goes to the top of Recientes
-                if (Intent.ACTION_PACKAGE_ADDED.equals(i.getAction())
-                        && !i.getBooleanExtra(Intent.EXTRA_REPLACING, false) && i.getData() != null) {
-                    pushRecent(i.getData().getSchemeSpecificPart());
-                }
-                recreate();
+                recreate(); // build() puts a freshly installed app at the front of the dock
             }
         };
         IntentFilter f = new IntentFilter();
@@ -176,15 +170,6 @@ public class Launcher extends Activity {
             }
         }
         return super.dispatchKeyEvent(ev);
-    }
-
-    @Override
-    protected void onRestart() {
-        super.onRestart();
-        if (recentsDirty) {
-            recentsDirty = false;
-            recreate(); // refresh the Recientes row after using an app
-        }
     }
 
     @Override
@@ -447,24 +432,33 @@ public class Launcher extends Activity {
         Map<String, Entry> all = new HashMap<>();
         for (Entry e : apps) all.put(e.pkg, e);
 
-        List<Entry> dock = new ArrayList<>();
-        List<String> used = new ArrayList<>();
-        for (String h : HIDDEN) used.add(h);
-        for (String[] spec : dockSpecs()) {
-            Entry e = dockEntry(spec, all);
-            if (e != null) { dock.add(e); used.add(spec[0]); }
-        }
-        dockEntries = dock;
+        // Todo vive en el dock. Una app que el launcher no conocia entra sola, en primer lugar (la primera vez que corre
+        // esta version, las que ya estaban se agregan al final para no desordenar el dock). "Ocultar" la saca y vuelve
+        // desde "Apps ocultas". Las de HIDDEN nunca entran.
         Set<String> hidden = prefs.getStringSet("hidden", new HashSet<String>());
-        List<Entry> grid = new ArrayList<>();
-        for (Entry e : apps) if (!used.contains(e.pkg) && !hidden.contains(e.pkg)) grid.add(e);
-        Collections.sort(grid, new Comparator<Entry>() {
+        boolean firstRun = !prefs.contains("known");
+        Set<String> known = prefs.getStringSet("known", new HashSet<String>());
+        List<String> dl = dockPkgs();
+        List<Entry> fresh = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Entry e : apps) {
+            if (isHiddenByDefault(e.pkg)) continue;
+            seen.add(e.pkg);
+            if (!known.contains(e.pkg) && !dl.contains(e.pkg) && !hidden.contains(e.pkg)) fresh.add(e);
+        }
+        Collections.sort(fresh, new Comparator<Entry>() {
             @Override public int compare(Entry a, Entry b) { return a.label.compareToIgnoreCase(b.label); }
         });
-        List<Entry> recents = new ArrayList<>();
-        for (String p : prefs.getString("recent", "").split(",")) {
-            for (Entry e : grid) if (e.pkg.equals(p) && recents.size() < COLS) recents.add(e);
+        for (int i = 0; i < fresh.size(); i++) dl.add(firstRun ? dl.size() : i, fresh.get(i).pkg);
+        if (!fresh.isEmpty() || firstRun) storeDock(dl);
+        if (!seen.equals(known)) prefs.edit().putStringSet("known", seen).apply();
+
+        List<Entry> dock = new ArrayList<>();
+        for (String[] spec : dockSpecs()) {
+            Entry e = dockEntry(spec, all);
+            if (e != null) dock.add(e);
         }
+        dockEntries = dock;
 
         scroll = new ScrollView(this) {
             @Override protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) { return 0; }
@@ -587,13 +581,9 @@ public class Launcher extends Activity {
         wifiPill.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { start(new Intent(netCable ? Settings.ACTION_SETTINGS : Settings.ACTION_WIFI_SETTINGS)); }
         });
-        // long press on Ajustes: bring back every hidden app
+        // long press on Ajustes: list the hidden apps to bring one (or all) back
         longActions.put(settingsPill, new Runnable() {
-            @Override public void run() {
-                prefs.edit().remove("hidden").apply();
-                Toast.makeText(Launcher.this, "Apps ocultas restauradas", Toast.LENGTH_SHORT).show();
-                recreate();
-            }
+            @Override public void run() { showHiddenApps(); }
         });
         settingsPill.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { start(new Intent(Settings.ACTION_SETTINGS)); }
@@ -642,7 +632,7 @@ public class Launcher extends Activity {
         dockRow.setPadding(dp(BAND_PAD), 0, dp(6), 0);
         dockScroll.addView(dockRow, new ViewGroup.LayoutParams(-2, -1));
         for (int i = 0; i < dock.size(); i++) {
-            View c = cell(dock.get(i), true);
+            View c = cell(dock.get(i));
             c.setNextFocusUpId(wifiPill.getId());
             if (i == 0) c.setNextFocusLeftId(c.getId());
             if (i == dock.size() - 1) c.setNextFocusRightId(c.getId());
@@ -653,19 +643,6 @@ public class Launcher extends Activity {
         wifiPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(0).getId());
         settingsPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(Math.min(dockCells.size() - 1, 3)).getId());
 
-        // grid
-        LinearLayout gridBox = new LinearLayout(this);
-        gridBox.setOrientation(LinearLayout.VERTICAL);
-        gridBox.setPadding(dp(MARGIN + BAND_PAD), dp(30), 0, dp(120));
-        col.addView(gridBox, new LinearLayout.LayoutParams(-1, -2));
-        List<View> gridCells = new ArrayList<>();
-        if (!recents.isEmpty()) {
-            gridBox.addView(sectionTitle("Recientes"));
-            addRows(gridBox, recents, null, true);
-            gridBox.addView(sectionTitle("Todas las apps"));
-        }
-        addRows(gridBox, grid, gridCells, false);
-
         setContentView(root);
 
         // restore last focused tile
@@ -673,7 +650,6 @@ public class Launcher extends Activity {
         View start = dockCells.isEmpty() ? null : dockCells.get(0);
         if (last != null) {
             for (View v : dockCells) if (last.equals(v.getTag())) start = v;
-            for (View v : gridCells) if (last.equals(v.getTag())) start = v;
         }
         final View first = start;
         if (first != null) content.post(new Runnable() {
@@ -681,43 +657,12 @@ public class Launcher extends Activity {
         });
     }
 
-    private TextView sectionTitle(String s) {
-        TextView t = text(s, 22.8f, "sans-serif");
-        t.setAlpha(0.85f);
-        t.setPadding(0, dp(6), 0, dp(HL_PAD + 8)); // el vidrio sobresale HL_PAD por encima del tile: no debe pisar el titulo
-        return t;
-    }
-
-    private void addRows(LinearLayout box, List<Entry> list, List<View> out, boolean recent) {
-        LinearLayout row = null;
-        for (int i = 0; i < list.size(); i++) {
-            if (i % COLS == 0) {
-                row = new LinearLayout(this);
-                box.addView(row, new LinearLayout.LayoutParams(-2, -2));
-            }
-            View c = cell(list.get(i), false);
-            if (recent) c.setTag("r:" + list.get(i).pkg); // same app also appears in the grid: keep tags unique
-            if (i % COLS == 0) c.setNextFocusLeftId(c.getId());
-            if (i % COLS == COLS - 1 || i == list.size() - 1) c.setNextFocusRightId(c.getId());
-            row.addView(c);
-            if (out != null) out.add(c);
-        }
-    }
-
-    private void pushRecent(String pkg) {
-        StringBuilder sb = new StringBuilder(pkg);
-        int n = 1;
-        for (String p : prefs.getString("recent", "").split(",")) {
-            if (p.isEmpty() || p.equals(pkg) || n >= 8) continue;
-            sb.append(',').append(p);
-            n++;
-        }
-        prefs.edit().putString("recent", sb.toString()).apply();
+    private static boolean isHiddenByDefault(String pkg) {
+        for (String h : HIDDEN) if (h.equals(pkg)) return true;
+        return false;
     }
 
     private void launch(Entry e) {
-        pushRecent(e.pkg);
-        recentsDirty = true;
         start(e.intent);
     }
 
@@ -744,17 +689,59 @@ public class Launcher extends Activity {
         return specs;
     }
 
-    private void saveDock(List<String> pkgs) {
+    private void storeDock(List<String> pkgs) {
         StringBuilder sb = new StringBuilder();
         for (String p : pkgs) sb.append(sb.length() > 0 ? "," : "").append(p);
         prefs.edit().putString("dock", sb.toString()).apply();
-        recreate();
     }
 
-    private void addToDock(final String pkg) {
-        List<String> l = dockPkgs();
-        l.add(pkg);
-        saveDock(l); // no limit: the dock scrolls sideways
+    private void saveDock(List<String> pkgs) {
+        storeDock(pkgs);
+        recreate(); // no limit on apps: the dock scrolls sideways
+    }
+
+    /** Hides an app: out of the dock and into "Apps ocultas" (it is not uninstalled). */
+    private void hideApp(String pkg) {
+        Set<String> h = new HashSet<>(prefs.getStringSet("hidden", new HashSet<String>()));
+        h.add(pkg);
+        prefs.edit().putStringSet("hidden", h).apply();
+        List<String> dl = dockPkgs();
+        dl.remove(pkg);
+        saveDock(dl);
+    }
+
+    /** Brings hidden apps back, at the front of the dock. */
+    private void unhideApps(List<String> pkgs) {
+        Set<String> h = new HashSet<>(prefs.getStringSet("hidden", new HashSet<String>()));
+        h.removeAll(pkgs);
+        prefs.edit().putStringSet("hidden", h).apply();
+        List<String> dl = dockPkgs();
+        for (String p : pkgs) if (!dl.contains(p)) dl.add(0, p);
+        saveDock(dl);
+    }
+
+    private void showHiddenApps() {
+        PackageManager pm = getPackageManager();
+        final List<String> pkgs = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        for (String p : prefs.getStringSet("hidden", new HashSet<String>())) {
+            try {
+                names.add(String.valueOf(pm.getApplicationInfo(p, 0).loadLabel(pm)));
+                pkgs.add(p);
+            } catch (PackageManager.NameNotFoundException ignored) { } // uninstalled since
+        }
+        if (pkgs.isEmpty()) {
+            Toast.makeText(this, "No hay apps ocultas", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (pkgs.size() > 1) names.add("Mostrar todas");
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Apps ocultas")
+                .setItems(names.toArray(new String[0]), new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dlg, int which) {
+                        unhideApps(which < pkgs.size() ? Collections.singletonList(pkgs.get(which)) : pkgs);
+                    }
+                }).show();
     }
 
     // ---- top bar stats: Wi-Fi speed, free RAM, temperature (local reads, no network)
@@ -831,18 +818,14 @@ public class Launcher extends Activity {
         if (stats != null) stats.setText(sb.toString());
     }
 
-    private void showMenu(final Entry e, final boolean dock) {
+    private void showMenu(final Entry e) {
         final List<String> items = new ArrayList<>();
         final List<String> dl = dockPkgs();
         final int di = dl.indexOf(e.pkg);
-        if (dock) {
-            if (di > 0) items.add("Mover a la izquierda");
-            if (di >= 0 && di < dl.size() - 1) items.add("Mover a la derecha");
-            if (dl.size() > 1) items.add("Quitar del dock");
-        } else {
-            items.add("Agregar al dock");
-            items.add("Ocultar");
-        }
+        if (di > 0) items.add("Mover a la izquierda");
+        if (di >= 0 && di < dl.size() - 1) items.add("Mover a la derecha");
+        if (dl.size() > 1) items.add("Ocultar");
+        if (!prefs.getStringSet("hidden", new HashSet<String>()).isEmpty()) items.add("Apps ocultas…");
         items.add("Información de la app");
         items.add("Desinstalar");
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -851,20 +834,14 @@ public class Launcher extends Activity {
                     @Override public void onClick(DialogInterface dlg, int which) {
                         String it = items.get(which);
                         Uri uri = Uri.parse("package:" + e.pkg);
-                        if (it.equals("Agregar al dock")) {
-                            addToDock(e.pkg);
-                        } else if (it.startsWith("Mover")) {
+                        if (it.startsWith("Mover")) {
                             int j = it.endsWith("izquierda") ? di - 1 : di + 1;
                             Collections.swap(dl, di, j);
                             saveDock(dl);
-                        } else if (it.equals("Quitar del dock")) {
-                            dl.remove(di);
-                            saveDock(dl);
                         } else if (it.equals("Ocultar")) {
-                            Set<String> h = new HashSet<>(prefs.getStringSet("hidden", new HashSet<String>()));
-                            h.add(e.pkg);
-                            prefs.edit().putStringSet("hidden", h).apply();
-                            recreate();
+                            hideApp(e.pkg);
+                        } else if (it.startsWith("Apps ocultas")) {
+                            showHiddenApps();
                         } else if (it.startsWith("Informaci")) {
                             start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri));
                         } else {
@@ -906,7 +883,7 @@ public class Launcher extends Activity {
         return t;
     }
 
-    private View cell(final Entry e, final boolean dock) {
+    private View cell(final Entry e) {
         final LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setId(View.generateViewId());
@@ -915,7 +892,6 @@ public class Launcher extends Activity {
         c.setClickable(true);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(dp(TILE_W), -2);
         cp.rightMargin = dp(GAP);
-        if (!dock) cp.bottomMargin = dp(18);
         c.setLayoutParams(cp);
 
         final ImageView img = new ImageView(this);
@@ -941,44 +917,22 @@ public class Launcher extends Activity {
         }
         c.addView(img, new LinearLayout.LayoutParams(dp(TILE_W), dp(TILE_H)));
 
-        final TextView label;
-        if (!dock) {
-            label = text(e.label, 20.9f, "sans-serif-medium");
-            label.setGravity(Gravity.CENTER_HORIZONTAL);
-            label.setPadding(0, dp(14), 0, 0);
-            label.setAlpha(0f);
-            label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            c.addView(label, new LinearLayout.LayoutParams(-1, dp(54)));
-        } else {
-            label = null;
-        }
-
         c.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { launch(e); }
         });
         longActions.put(c, new Runnable() {
-            @Override public void run() { showMenu(e, dock); }
+            @Override public void run() { showMenu(e); }
         });
         c.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
                 float s = has ? 1.1f : 1f;
                 img.animate().scaleX(s).scaleY(s).setDuration(180).start();
-                if (label != null) label.animate().alpha(has ? 1f : 0f).setDuration(150).start();
                 if (!has) return;
                 prefs.edit().putString("last", e.pkg).apply();
                 moveHighlight(img);
-                if (dock) {
-                    dockName.setText(e.label);
-                    setGlow(e.color, img, 0);
-                    scroll.smoothScrollTo(0, 0);
-                } else {
-                    dockName.setText("");
-                    Rect r = new Rect(0, 0, c.getWidth(), c.getHeight());
-                    content.offsetDescendantRectToMyCoords(c, r);
-                    int target = Math.max(0, r.top - dp(170));
-                    setGlow(e.color, img, target);
-                    scroll.smoothScrollTo(0, target);
-                }
+                dockName.setText(e.label);
+                setGlow(e.color, img, 0);
+                scroll.smoothScrollTo(0, 0);
             }
         });
         return c;

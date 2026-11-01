@@ -36,7 +36,8 @@ caja funciona igual sin ellos:
 ## Qué es
 - `tv-launcher/` — el launcher. Un archivo Java, UI por código, se compila con `build.ps1`
   (aapt2 + javac + d8 + apksigner) y se instala con `install.ps1 <ip>`.
-  - Dock desplazable y editable (mantener OK sobre una app), fila de recientes, grilla de 4 columnas.
+  - Un único dock desplazable con todas las apps: las nuevas entran solas al principio y se pueden ocultar y
+    recuperar (mantener OK sobre una app, o sobre "Ajustes" para ver las ocultas). Sin grilla ni recientes.
   - Vidrio de resorte entre tiles, brillo del color del ícono, navegación D-pad determinista.
   - Barra superior: Liberar RAM, Wi-Fi con velocidad, Ajustes de Android TV, línea de RAM.
 - `docs/` — documentación técnica y el prompt reutilizable.
