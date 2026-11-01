@@ -75,6 +75,13 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 ## Personalizar launcher y ajustes exportables
 - Se abre con mantener OK sobre cualquier app o sobre el botón "Ajustes" de arriba. Es un menú (`showLauncherMenu`)
   al que se le van sumando opciones. Cada una guarda un índice o booleano en las preferencias y rearma la pantalla.
+- **Imagen de fondo propia**: si hay un `background.jpg` / `.jpeg` / `.png` en la carpeta externa de la app
+  (`/sdcard/Android/data/com.jgx.launcher/files/`, la misma de los ajustes) se usa detrás del launcher, con una capa negra
+  de oscurecido (`bg_dim`: Sin oscurecer / Suave 35 % / Medio 55 % / Fuerte 75 %) para que los textos se lean; el brillo
+  de color va encima. `bg_on` la apaga sin borrar el archivo. Se copia con `install.ps1 <ip> -Fondo foto.jpg` o con
+  `adb push`. La imagen se decodifica al ancho de pantalla (`inSampleSize`) y en RGB_565, porque son cajas de 1 GB: una foto
+  de 4000×3000 dejó el launcher en ~35 MB de PSS. Un archivo roto o sin memoria se ignora y el launcher sigue sin imagen.
+  La imagen en sí **no** viaja en el archivo de ajustes (solo `bg_on` y `bg_dim`).
 - **Orden del dock** (`dock_order`): Manual (el orden que armó la persona, con "Mover a la izquierda/derecha") /
   Alfabético / Más usadas / Últimas usadas. Solo cambia lo que se *muestra* (`sortDock`); la lista manual guardada no
   se toca, así que volver a Manual recupera el orden propio. "Mover" solo aparece en Manual. El uso se registra al abrir

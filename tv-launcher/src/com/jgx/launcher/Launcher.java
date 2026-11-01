@@ -78,6 +78,9 @@ public class Launcher extends Activity {
     private static final int[] CARD_CORNER_DP = {4, 16, 28};
     private static final String[] CARD_ZOOM_NAMES = {"Sin zoom", "Suave", "Normal", "Grande"};
     private static final float[] CARD_ZOOM_SCALE = {1f, 1.05f, 1.1f, 1.2f};
+    // Imagen de fondo propia: oscurecido sobre la imagen (indice guardado en bg_dim)
+    private static final String[] BG_DIM_NAMES = {"Sin oscurecer", "Suave", "Medio", "Fuerte"};
+    private static final float[] BG_DIM_ALPHA = {0f, 0.35f, 0.55f, 0.75f};
     // Orden del dock: Manual respeta el orden que la persona armo (Mover a la izquierda/derecha); los demas lo ordenan solos
     private static final String[] ORDER_NAMES = {"Manual", "Alfabético", "Más usadas", "Últimas usadas"};
 
@@ -153,6 +156,41 @@ public class Launcher extends Activity {
         f.addDataScheme("package");
         registerReceiver(pkgReceiver, f);
         importIfRequested();
+    }
+
+    /** `background.jpg` / `.png` en la carpeta externa de la app (la misma de los ajustes), o null si no hay. */
+    private java.io.File backgroundFile() {
+        java.io.File dir = getExternalFilesDir(null);
+        if (dir == null) return null;
+        for (String n : new String[]{"background.jpg", "background.jpeg", "background.png"}) {
+            java.io.File f = new java.io.File(dir, n);
+            if (f.isFile() && f.length() > 0) return f;
+        }
+        return null;
+    }
+
+    /**
+     * Decodifica la imagen al tamano de la pantalla y en RGB_565 (2 bytes por pixel): estas cajas tienen 1 GB de RAM y una
+     * foto de 4000x3000 en ARGB_8888 serian ~48 MB. Si algo falla (archivo roto, sin memoria) se sigue sin imagen.
+     */
+    private Bitmap loadBackground() {
+        java.io.File f = backgroundFile();
+        if (f == null) return null;
+        try {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+            if (o.outWidth <= 0 || o.outHeight <= 0) return null;
+            int target = Math.max(1, Math.round(1280 * d));
+            int sample = 1;
+            while (o.outWidth / (sample * 2) >= target) sample *= 2;
+            o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = sample;
+            o.inPreferredConfig = Bitmap.Config.RGB_565;
+            return android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+        } catch (Throwable t) { // incluye OutOfMemoryError
+            return null;
+        }
     }
 
     /** Indice guardado de una opcion; si falta o quedo fuera de rango (archivo importado a mano) vale el por defecto. */
@@ -534,6 +572,16 @@ public class Launcher extends Activity {
         glowView.setBackground(glow);
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
+        Bitmap bgBmp = prefs.getBoolean("bg_on", true) ? loadBackground() : null;
+        if (bgBmp != null) {
+            ImageView bgView = new ImageView(this);
+            bgView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            bgView.setImageBitmap(bgBmp);
+            root.addView(bgView, new FrameLayout.LayoutParams(-1, -1));
+            View dim = new View(this); // oscurece la imagen para que los textos se lean sobre cualquier fondo
+            dim.setBackgroundColor(Color.argb(Math.round(255 * BG_DIM_ALPHA[pref("bg_dim", 2, BG_DIM_ALPHA.length)]), 0, 0, 0));
+            root.addView(dim, new FrameLayout.LayoutParams(-1, -1));
+        }
         root.addView(glowView, new FrameLayout.LayoutParams(-1, -1));
         root.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
 
@@ -813,7 +861,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_on", "bg_dim"};
 
     private void showLauncherMenu() {
         final List<String> items = new ArrayList<>();
@@ -823,6 +871,9 @@ public class Launcher extends Activity {
         items.add("Esquinas: " + CARD_CORNER_NAMES[pref("card_corners", 1, CARD_CORNER_NAMES.length)]);
         items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
         items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
+        final boolean hasBg = backgroundFile() != null;
+        items.add("Imagen de fondo: " + (!hasBg ? "no hay imagen" : prefs.getBoolean("bg_on", true) ? "Sí" : "No"));
+        if (hasBg) items.add("Oscurecer imagen: " + BG_DIM_NAMES[pref("bg_dim", 2, BG_DIM_NAMES.length)]);
         items.add("Exportar ajustes");
         items.add("Importar ajustes");
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
@@ -839,6 +890,16 @@ public class Launcher extends Activity {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
                             recreate();
                         }
+                        else if (it.startsWith("Imagen de fondo")) {
+                            if (hasBg) {
+                                prefs.edit().putBoolean("bg_on", !prefs.getBoolean("bg_on", true)).apply();
+                                recreate();
+                            } else {
+                                Toast.makeText(Launcher.this, "Copia background.jpg a Android/data/" + getPackageName() + "/files/",
+                                        Toast.LENGTH_LONG).show();
+                            }
+                        }
+                        else if (it.startsWith("Oscurecer")) choose("Oscurecer imagen", "bg_dim", BG_DIM_NAMES, 2);
                         else if (it.equals("Exportar ajustes")) exportSettings();
                         else if (it.equals("Importar ajustes")) importSettings();
                     }
