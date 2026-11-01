@@ -81,7 +81,7 @@ public class Launcher extends Activity {
     // Imagen de fondo propia: oscurecido sobre la imagen (indice guardado en bg_dim)
     private static final String[] BG_DIM_NAMES = {"Sin oscurecer", "Suave", "Medio", "Fuerte"};
     private static final float[] BG_DIM_ALPHA = {0f, 0.35f, 0.55f, 0.75f};
-    // Orden del dock: Manual respeta el orden que la persona armo (Mover a la izquierda/derecha); los demas lo ordenan solos
+    // Orden del dock: Manual respeta el orden que la persona armo (modo Mover); los demas lo ordenan solos
     private static final String[] ORDER_NAMES = {"Manual", "Alfabético", "Más usadas", "Últimas usadas"};
 
     private static class Entry {
@@ -98,7 +98,9 @@ public class Launcher extends Activity {
     private float zoom;
     private boolean glowOn;
     private int order;
-    private boolean usedDirty;   // se abrio una app con orden por uso: al volver hay que reordenar
+    private LinearLayout dockRowView;
+    private String movingPkg;    // modo "Mover": la app agarrada (null = modo normal)
+    private boolean usedDirty;  // se abrio una app con orden por uso: al volver hay que reordenar
     private FrameLayout content;
     private ScrollView scroll;
     private View hl;
@@ -210,6 +212,7 @@ public class Launcher extends Activity {
         super.onNewIntent(i);
         setIntent(i);
         importIfRequested();
+        if (movingPkg != null) { movingPkg = null; recreate(); return; } // Inicio cancela el modo Mover
         // Home pressed while already on the launcher: back to the first dock app
         if (!dockCells.isEmpty()) {
             scroll.scrollTo(0, 0);
@@ -221,6 +224,7 @@ public class Launcher extends Activity {
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {
         int k = ev.getKeyCode();
+        if (movingPkg != null && handleMoveKey(ev)) return true;
         if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
             if (ev.getAction() == KeyEvent.ACTION_DOWN && ev.getRepeatCount() > 0) {
                 if (!longHandled) {
@@ -272,7 +276,73 @@ public class Launcher extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) syncHighlight();
+        if (hasFocus) {
+            longHandled = false; // el "soltar OK" de un mantener-OK se lo queda el dialogo y no llega aca
+            syncHighlight();
+        }
+    }
+
+    // ---- modo "Mover": se agarra una app, se la lleva con izquierda/derecha y OK confirma (Atras / Inicio cancelan)
+
+    private void startMove(Entry e) {
+        movingPkg = e.pkg;
+        dockName.setText("↔ " + e.label);
+        Toast.makeText(this, "Mové con ◀ ▶  ·  OK confirma  ·  Atrás cancela", Toast.LENGTH_LONG).show();
+    }
+
+    private boolean handleMoveKey(KeyEvent ev) {
+        int k = ev.getKeyCode();
+        boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
+        if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (down) moveStep(k == KeyEvent.KEYCODE_DPAD_LEFT ? -1 : 1);
+            return true;
+        }
+        if (k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN) return true;
+        if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
+            if (!down) confirmMove();
+            return true;
+        }
+        if (k == KeyEvent.KEYCODE_BACK) {
+            if (!down) { movingPkg = null; recreate(); } // se descarta: build() vuelve a leer el orden guardado
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Mueve la app agarrada una posicion. En vez de sacar y volver a poner la vista enfocada (el foco se perderia y
+     * Android lo mandaria al primer tile), se mueve su VECINA al lado opuesto: el resultado es el mismo orden.
+     */
+    private void moveStep(int dir) {
+        int i = -1;
+        for (int n = 0; n < dockCells.size(); n++) if (movingPkg.equals(dockCells.get(n).getTag())) i = n;
+        int j = i + dir;
+        if (i < 0 || j < 0 || j >= dockCells.size()) return;
+        final View mine = dockCells.get(i), other = dockCells.get(j);
+        dockRowView.removeViewAt(j);
+        dockRowView.addView(other, i);
+        dockCells.set(i, other);
+        dockCells.set(j, mine);
+        for (int n = 0; n < dockCells.size(); n++) { // los extremos apuntan a si mismos; el resto, al vecino natural
+            View c = dockCells.get(n);
+            c.setNextFocusLeftId(n == 0 ? c.getId() : View.NO_ID);
+            c.setNextFocusRightId(n == dockCells.size() - 1 ? c.getId() : View.NO_ID);
+        }
+        final View img = ((LinearLayout) mine).getChildAt(0);
+        mine.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override public void onGlobalLayout() {
+                mine.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                moveHighlight(img); // el vidrio acompana con su resorte
+                mine.requestRectangleOnScreen(new Rect(0, 0, mine.getWidth(), mine.getHeight()));
+            }
+        });
+    }
+
+    private void confirmMove() {
+        List<String> pkgs = new ArrayList<>();
+        for (View c : dockCells) pkgs.add(String.valueOf(c.getTag()));
+        movingPkg = null;
+        saveDock(pkgs);
     }
 
     /** After coming back from another app, snap the highlight (and glow) onto the focused tile without animating. */
@@ -723,6 +793,7 @@ public class Launcher extends Activity {
         });
         band.addView(dockScroll, new LinearLayout.LayoutParams(-2, -1));
         LinearLayout dockRow = new LinearLayout(this);
+        dockRowView = dockRow;
         dockRow.setPadding(dp(BAND_PAD), 0, dp(6), 0);
         dockScroll.addView(dockRow, new ViewGroup.LayoutParams(-2, -1));
         for (int i = 0; i < dock.size(); i++) {
@@ -1102,8 +1173,7 @@ public class Launcher extends Activity {
         final List<String> dl = dockPkgs();
         final int di = dl.indexOf(e.pkg);
         if (order == 0) { // mover solo tiene sentido con el orden manual
-            if (di > 0) items.add("Mover a la izquierda");
-            if (di >= 0 && di < dl.size() - 1) items.add("Mover a la derecha");
+            if (dl.size() > 1) items.add("Mover");
         }
         if (dl.size() > 1) items.add("Ocultar");
         items.add("Personalizar launcher…");
@@ -1115,10 +1185,8 @@ public class Launcher extends Activity {
                     @Override public void onClick(DialogInterface dlg, int which) {
                         String it = items.get(which);
                         Uri uri = Uri.parse("package:" + e.pkg);
-                        if (it.startsWith("Mover")) {
-                            int j = it.endsWith("izquierda") ? di - 1 : di + 1;
-                            Collections.swap(dl, di, j);
-                            saveDock(dl);
+                        if (it.equals("Mover")) {
+                            startMove(e);
                         } else if (it.equals("Ocultar")) {
                             hideApp(e.pkg);
                         } else if (it.startsWith("Personalizar")) {
@@ -1211,7 +1279,7 @@ public class Launcher extends Activity {
                 if (!has) return;
                 prefs.edit().putString("last", e.pkg).apply();
                 moveHighlight(img);
-                dockName.setText(e.label);
+                dockName.setText(movingPkg != null ? "↔ " + e.label : e.label);
                 setGlow(e.color, img, 0);
                 scroll.smoothScrollTo(0, 0);
             }

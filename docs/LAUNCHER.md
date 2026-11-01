@@ -65,8 +65,14 @@ PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"`
 - Sin límite de apps: `HorizontalScrollView` dentro de la banda. La banda tiene margen derecho para limitar su
   ancho. El scroll deja 34 dp de aire a cada lado del tile enfocado (`computeScrollDeltaToGetChildRectOnScreen`
   con el rectángulo ampliado) para que el vidrio quede dentro de la banda.
-- Menú al **mantener OK** sobre una app: "Mover a la izquierda / derecha", "Ocultar", "Personalizar launcher…",
+- Menú al **mantener OK** sobre una app: "Mover", "Ocultar", "Personalizar launcher…",
   "Información de la app" y "Desinstalar". Las apps del sistema no se desinstalan (solo avisa).
+- **Modo Mover** (solo con orden Manual): "Mover" agarra la app (el nombre grande pasa a "↔ nombre"); con ◀ ▶ se la lleva
+  al lugar elegido, OK confirma y se guarda, Atrás o Inicio cancelan (se vuelve al orden guardado). Arriba/abajo se
+  ignoran mientras tanto. `moveStep` no saca la vista enfocada para reubicarla (el foco se perdería y Android lo mandaría
+  al primer tile): intercambia a su vecina del lado opuesto, con el mismo resultado; el vidrio la sigue con su resorte.
+  `onWindowFocusChanged` limpia `longHandled`: el "soltar OK" de un mantener-OK se lo queda el diálogo y dejaba el
+  indicador pegado, tragándose el siguiente clic.
 - "Ocultar" saca la app del dock y la guarda en `hidden`; no la desinstala. Para recuperarla: "Personalizar
   launcher…" > "Apps ocultas…" (aparece solo si hay alguna), que devuelve una (o "Mostrar todas") al principio del dock.
 - `build()` descarta del dock las apps que ya no existen o están desactivadas; sin esto quedaban anotadas en la
