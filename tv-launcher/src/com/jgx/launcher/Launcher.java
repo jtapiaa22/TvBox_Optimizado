@@ -89,6 +89,8 @@ public class Launcher extends Activity {
     private boolean hlShown;
     private GradientDrawable glow;
     // The glow lives in a fixed layer BEHIND the scrolling content, so the background is the same on every screen.
+    private boolean netCable;
+    private PillIcon icoWifi, icoEth;
     private FrameLayout root;
     private float glowCx = 0.25f, glowCy = 0.84f;
     private int glowColor = 0x003A6EA5;
@@ -241,10 +243,92 @@ public class Launcher extends Activity {
             WifiInfo wi = ((WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE)).getConnectionInfo();
             if (wi != null) speed = wi.getLinkSpeed();
         } catch (Exception ignored) { }
-        String t = name != null ? "Wi-Fi  ·  " + name : "Wi-Fi";
-        if (name != null && speed > 0) t += "  ·  " + speed + " Mbps";
+        boolean cable = false;
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+            android.net.NetworkInfo ni = cm.getActiveNetworkInfo();
+            cable = ni != null && ni.isConnected() && ni.getType() == android.net.ConnectivityManager.TYPE_ETHERNET;
+        } catch (Exception ignored) { }
+        String t;
+        if (cable) {
+            int eth = -1;
+            try { // velocidad del enlace; muchos kernels de TV box no exponen este archivo
+                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader("/sys/class/net/eth0/speed"));
+                eth = Integer.parseInt(br.readLine().trim());
+                br.close();
+            } catch (Exception ignored) { }
+            t = "Cable" + (eth > 0 ? "  ·  " + eth + " Mbps" : "");
+        } else {
+            t = name != null ? "Wi-Fi  ·  " + name : "Wi-Fi";
+            if (name != null && speed > 0) t += "  ·  " + speed + " Mbps";
+        }
+        netCable = cable;
         wifiPill.setText(t);
+        wifiPill.setCompoundDrawables(cable ? icoEth : icoWifi, null, null, null);
     }
+
+    /** Iconos de las pastillas, dibujados por codigo (sin recursos): wifi, cable de red, engranaje, chip de RAM. */
+    private static final class PillIcon extends Drawable {
+        static final int WIFI = 0, ETH = 1, GEAR = 2, CHIP = 3;
+        private final int kind;
+        private final int size;
+        private final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        PillIcon(int kind, int size) {
+            this.kind = kind;
+            this.size = size;
+            p.setColor(Color.WHITE);
+            p.setStyle(android.graphics.Paint.Style.STROKE);
+            p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            setBounds(0, 0, size, size);
+        }
+
+        @Override public int getIntrinsicWidth() { return size; }
+        @Override public int getIntrinsicHeight() { return size; }
+        @Override public void setAlpha(int a) { p.setAlpha(a); }
+        @Override public void setColorFilter(android.graphics.ColorFilter f) { p.setColorFilter(f); }
+        @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
+
+        @Override public void draw(Canvas c) {
+            float s = size;
+            p.setStrokeWidth(s * 0.09f);
+            p.setStyle(android.graphics.Paint.Style.STROKE);
+            if (kind == WIFI) {
+                float cx = s * 0.5f, cy = s * 0.82f;
+                for (int i = 1; i <= 3; i++) {
+                    float r = s * 0.2f * i;
+                    c.drawArc(new android.graphics.RectF(cx - r, cy - r, cx + r, cy + r), 225, 90, false, p);
+                }
+                p.setStyle(android.graphics.Paint.Style.FILL);
+                c.drawCircle(cx, cy, s * 0.07f, p);
+            } else if (kind == ETH) {
+                c.drawRoundRect(new android.graphics.RectF(s * 0.14f, s * 0.14f, s * 0.86f, s * 0.64f), s * 0.08f, s * 0.08f, p);
+                for (int i = 0; i < 4; i++) {
+                    float x = s * (0.28f + 0.147f * i);
+                    c.drawLine(x, s * 0.14f, x, s * 0.34f, p);
+                }
+                c.drawLine(s * 0.5f, s * 0.64f, s * 0.5f, s * 0.86f, p);
+                c.drawLine(s * 0.3f, s * 0.86f, s * 0.7f, s * 0.86f, p);
+            } else if (kind == GEAR) {
+                c.drawCircle(s * 0.5f, s * 0.5f, s * 0.26f, p);
+                for (int i = 0; i < 8; i++) {
+                    double a = Math.PI / 4 * i;
+                    float cs = (float) Math.cos(a), sn = (float) Math.sin(a);
+                    c.drawLine(s * 0.5f + cs * s * 0.34f, s * 0.5f + sn * s * 0.34f,
+                            s * 0.5f + cs * s * 0.45f, s * 0.5f + sn * s * 0.45f, p);
+                }
+            } else {
+                c.drawRoundRect(new android.graphics.RectF(s * 0.18f, s * 0.28f, s * 0.82f, s * 0.72f), s * 0.06f, s * 0.06f, p);
+                for (int i = 0; i < 4; i++) {
+                    float x = s * (0.28f + 0.147f * i);
+                    c.drawLine(x, s * 0.12f, x, s * 0.28f, p);
+                    c.drawLine(x, s * 0.72f, x, s * 0.88f, p);
+                }
+            }
+        }
+    }
+
+    private PillIcon pillIcon(int kind) { return new PillIcon(kind, dp(24)); }
 
     private String greeting() {
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
@@ -472,11 +556,16 @@ public class Launcher extends Activity {
         pp.rightMargin = dp(MARGIN);
         pp.topMargin = dp(36);
         screen.addView(pills, pp);
+        icoWifi = pillIcon(PillIcon.WIFI);
+        icoEth = pillIcon(PillIcon.ETH);
         wifiPill = pill("Wi-Fi");
+        wifiPill.setCompoundDrawables(icoWifi, null, null, null);
         settingsPill = pill("Ajustes");
+        settingsPill.setCompoundDrawables(pillIcon(PillIcon.GEAR), null, null, null);
         wifiPill.setId(View.generateViewId());
         settingsPill.setId(View.generateViewId());
         final TextView ramPill = pill("Liberar RAM");
+        ramPill.setCompoundDrawables(pillIcon(PillIcon.CHIP), null, null, null);
         ramPill.setId(View.generateViewId());
         ramPill.setNextFocusLeftId(ramPill.getId());
         ramPill.setNextFocusUpId(ramPill.getId());
@@ -492,7 +581,7 @@ public class Launcher extends Activity {
         pills.addView(wifiPill, gp);
         pills.addView(settingsPill);
         wifiPill.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { start(new Intent(Settings.ACTION_WIFI_SETTINGS)); }
+            @Override public void onClick(View v) { start(new Intent(netCable ? Settings.ACTION_SETTINGS : Settings.ACTION_WIFI_SETTINGS)); }
         });
         // long press on Ajustes: bring back every hidden app
         longActions.put(settingsPill, new Runnable() {
@@ -792,7 +881,9 @@ public class Launcher extends Activity {
 
     private TextView pill(String s) {
         final TextView t = text(s, 20.9f, "sans-serif-medium");
-        t.setPadding(dp(26), dp(12), dp(26), dp(12));
+        t.setPadding(dp(24), dp(12), dp(26), dp(12));
+        t.setCompoundDrawablePadding(dp(10));
+        t.setGravity(Gravity.CENTER_VERTICAL);
         t.setBackground(round(0x2EFFFFFF, 30));
         t.setFocusable(true);
         t.setClickable(true);
