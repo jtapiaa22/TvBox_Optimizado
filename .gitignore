@@ -8,3 +8,6 @@
 
 # Extra personal: la animacion de arranque armada (24 MB) no se sube
 tools/bootanimation-messi/*.zip
+
+# Extra: las librerias del sistema de la caja no se suben
+tools/correccion-calidad-h264/*.so

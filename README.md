@@ -31,6 +31,8 @@ caja funciona igual sin ellos:
 - [`tools/ver-tvbox/`](tools/ver-tvbox/README.md): ver la pantalla de la caja en el PC, con sonido (experimental). Es una
   herramienta para quien trabaja con la caja por ADB: no instala nada permanente en ella.
 - [`docs/PARCHEAR-JAVA-TIME.md`](docs/PARCHEAR-JAVA-TIME.md): arreglo para una app ajena que se cae en Android 7 por `java.time`.
+- [`tools/correccion-calidad-h264/`](tools/correccion-calidad-h264/README.md): arreglo a nivel sistema para que las apps ofrezcan
+  720p/1080p (H.264 High) en cajas con Android 7 (parche de 3 bytes en `libstagefright.so`, con diagnóstico y vuelta atrás).
 - [`tools/bootanimation-messi/`](tools/bootanimation-messi/README.md): animación de arranque personalizada (solo estética).
 - WebView 55 → 114: solo si una app necesita páginas modernas (ver "Extras" en las notas de la caja). No hacía falta.
 
