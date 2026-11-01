@@ -43,5 +43,7 @@ ya arrancó.)
 Con el mismo procedimiento (`adb root`, `adb remount`, `adb push` del `bootanimation-original.zip` guardado). No hay forma
 de recuperar el original de la caja si no se respaldó antes.
 
-## Pendiente
-Probado con el servicio de animación en la caja (capturas) pero **no en un arranque en frío real**.
+## Estado
+Probada con el servicio de animación (capturas) y en un **reinicio real** de la MXQ Pro 5G: la persona la vio en el
+televisor al encender, y la caja arrancó normal (~25 s, `/system` de vuelta en solo lectura, launcher al terminar).
+No probada en otros modelos de caja.
