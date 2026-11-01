@@ -922,6 +922,7 @@ public class Launcher extends Activity {
 
         // dock name above the dock
         dockName = text("", 47.5f, "sans-serif");
+        dockName.setTypeface(Typeface.create("sans-serif", Typeface.BOLD_ITALIC)); // nombre de la app: negrita cursiva
         FrameLayout.LayoutParams np = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
         np.leftMargin = dp(MARGIN + BAND_PAD);
         np.bottomMargin = dp(BAND_BOTTOM + bandH + 22);
