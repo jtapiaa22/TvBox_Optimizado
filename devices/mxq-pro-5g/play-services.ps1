@@ -17,6 +17,7 @@ param(
     [int]$Port = 5555
 )
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+if (-not (Test-Path $adb)) { $c = Get-Command adb -ErrorAction SilentlyContinue; if ($c) { $adb = $c.Source } else { throw "No encuentro adb. Instala las platform-tools o ponlas en el PATH." } }
 $dev = "${Ip}:$Port"
 $paquetes = 'com.android.vending', 'com.google.android.gms', 'com.google.android.gsf.login', 'com.google.android.gsf'
 
