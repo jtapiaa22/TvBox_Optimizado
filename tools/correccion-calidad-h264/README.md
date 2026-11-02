@@ -6,7 +6,14 @@ no hay que parchear cada app ni repetirlo cuando sale una versión nueva.
 
 Probado en la MXQ Pro 5G (RK3229, `rk322x_box-userdebug 7.1.2 NHG47K eng.ROCKCHIP.20200316.015029`). Con el arreglo, XtremeTV
 v36 **sin modificar** pasó de una sola calidad baja a ofrecer 720p/576p/480p/360p/240p en Telefe, y la persona vio
-Telefe y DAZN F1 en 1080p. No está probado en otras cajas.
+Telefe y DAZN F1 en 1080p.
+
+**Segunda caja** (`TV BOX-3`, RK322x, `rk322x_box-userdebug 7.1.2 NHG47K eng.akrd2.20250519.170310`, 2026-11-01): su
+`libstagefright.so` original resultó **idéntica byte por byte** a la de la MXQ Pro 5G (mismo SHA-256 `0d9d1620…`), el
+diagnóstico daba el mismo corte en `8:1` y el parche dejó el decodificador de hardware en `8:8000` tras reiniciar. Ahí **solo se
+verificó lo que la caja informa con `CodecInfo`**; no se probó reproducción real en una app (en esa caja no había una instalada).
+Esta caja no trae el decodificador "seguro" (`.secure`). Con firmwares de otra compilación el script se niega si no ve las 3
+coincidencias.
 
 ## Síntoma
 Un canal ofrece un solo formato de baja calidad y la flecha arriba (menú de calidades) no deja elegir. En el log
