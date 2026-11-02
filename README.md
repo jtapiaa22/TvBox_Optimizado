@@ -20,7 +20,8 @@ ADB al terminar.
 
 ## La optimización de una caja (esto es lo que se repite en cada caja)
 Resumen de lo hecho en la MXQ Pro 5G (detalles y comandos en [`devices/mxq-pro-5g/README.md`](devices/mxq-pro-5g/README.md)):
-1. **Respaldo y debloat**: apps de fábrica, de prueba, telemetría (Adups) y navegadores se desactivan y luego se quitan.
+1. **Respaldo y debloat**: apps de fábrica, de prueba, telemetría (Adups) y navegadores se desactivan y luego se quitan
+   (esto último con [`tools/limpiar-apps-desactivadas/`](tools/limpiar-apps-desactivadas/README.md), con respaldo y modo prueba).
 2. **Launcher propio** (`tv-launcher/`) en lugar del original, que no se vuelve a activar al reiniciar.
 3. **Play Store y Play Services apagados** (`devices/<modelo>/play-services.ps1`): ~300 MB de RAM en una caja de 1 GB.
    Antes se instala **Downloader 1.5.1** ([`apps/downloader-1.5.1/`](apps/downloader-1.5.1/README.md)) para poder instalar apps.

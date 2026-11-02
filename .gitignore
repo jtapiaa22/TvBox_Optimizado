@@ -15,3 +15,6 @@ tools/correccion-calidad-h264/*.so
 # TizenTube: APK bajado y respaldo de YouTube (los hace el instalador, no se suben)
 apps/tizentube-2.0.2/descargas/
 apps/tizentube-2.0.2/respaldo-youtube/
+
+# Limpieza de apps desactivadas: respaldo de las carpetas de /system (lo hace el script, no se sube)
+tools/limpiar-apps-desactivadas/respaldo-system/
