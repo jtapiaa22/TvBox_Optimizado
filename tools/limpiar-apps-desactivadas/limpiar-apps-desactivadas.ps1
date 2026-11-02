@@ -8,7 +8,7 @@
 
   Que hace con -Ejecutar, en este orden (y se detiene ante cualquier error ANTES de borrar):
     1. Respaldo de cada carpeta /system/app/<X> o /system/priv-app/<X> en <Respaldo>\app y <Respaldo>\priv-app, y
-       comprueba que se copiaron TODOS los archivos. Si falta uno, no borra nada.
+       comprueba que CADA archivo de la caja esta en el PC con el mismo tamano. Si falta uno, no borra nada.
     2. adb root + adb remount (necesita una compilacion depurable: userdebug). Si no hay root, no borra nada.
     3. Las apps de sistema que tenian una actualizacion en /data/app (Play Store, Play Services...) se desinstalan con
        `pm uninstall` (sin --user) para que no queden sueltas como apps normales.
@@ -102,9 +102,18 @@ foreach ($it in $plan) {
     New-Item -ItemType Directory -Force $dest | Out-Null
     Write-Host "Respaldando $($it.Carpeta)..."
     & $adb -s $dev pull $it.Carpeta "$dest\" | Out-Null
-    $remotos = @((Invoke-Adb shell "find $($it.Carpeta) -type f") | Where-Object { $_ -match '\S' }).Count
-    $locales = @(Get-ChildItem (Join-Path $dest $nombre) -Recurse -File -ErrorAction SilentlyContinue).Count
-    if ($remotos -eq 0 -or $locales -ne $remotos) { throw "Respaldo incompleto de $($it.Carpeta) (caja: $remotos archivos, PC: $locales). No se borro NADA." }
+    # Cada archivo regular de la caja tiene que estar en la PC con el MISMO tamano (los enlaces simbolicos que adb copia de mas no molestan)
+    $archivos = @((Invoke-Adb shell "find $($it.Carpeta) -type f") | ForEach-Object { "$_".Trim() } | Where-Object { $_ -like "$($it.Carpeta)/*" })
+    if ($archivos.Count -eq 0) { throw "No pude listar los archivos de $($it.Carpeta) para verificar el respaldo. No se borro NADA." }
+    $problemas = @()
+    foreach ($f in $archivos) {
+        $local = Join-Path (Join-Path $dest $nombre) ($f.Substring($it.Carpeta.Length + 1) -replace '/', '\')
+        $m = [regex]::Match((Texto (Invoke-Adb shell "ls -l $f")), '(\d+)\s+\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}')
+        if (-not $m.Success) { $problemas += "$f (no pude leer su tamano en la caja)" }
+        elseif (-not (Test-Path -LiteralPath $local)) { $problemas += "$f (falta en el PC)" }
+        elseif ((Get-Item -LiteralPath $local).Length -ne [int64]$m.Groups[1].Value) { $problemas += "$f (tamano distinto)" }
+    }
+    if ($problemas.Count) { throw "Respaldo incompleto de $($it.Carpeta): $($problemas -join '; '). No se borro NADA." }
 }
 $plan | Export-Csv (Join-Path $Respaldo 'lista.csv') -NoTypeInformation -Encoding UTF8
 Write-Host "Respaldo completo en $Respaldo" -ForegroundColor Green

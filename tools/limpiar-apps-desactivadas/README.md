@@ -19,8 +19,9 @@ actualización en `/data/app` y tamaño. Los paquetes básicos del sistema (`and
 instalador de paquetes, teclado, Chrome, nuestro launcher...) se saltan aunque estén desactivados.
 
 ## Qué hace con `-Ejecutar` (y se detiene antes de borrar ante cualquier problema)
-1. Respalda cada carpeta `/system/app/<X>` o `/system/priv-app/<X>` en `<respaldo>\app` y `<respaldo>\priv-app`, y **comprueba que se
-   copiaron todos los archivos**. Si falta alguno, no borra nada.
+1. Respalda cada carpeta `/system/app/<X>` o `/system/priv-app/<X>` en `<respaldo>\app` y `<respaldo>\priv-app`, y **comprueba que
+   cada archivo de la caja está en el PC con el mismo tamaño**. Si falta uno, tiene otro tamaño o no se puede leer, no borra nada.
+   (No se compara la *cantidad* de archivos: `adb pull` copia de más los enlaces simbólicos y eso daba un falso "incompleto".)
 2. `adb root` y `adb remount`. Hace falta una compilación depurable (`userdebug`); si no hay root, no borra nada.
 3. Las apps de sistema con actualización en `/data/app` (Play Store, Play Services...) se desinstalan con `pm uninstall` sin `--user`.
 4. `rm -rf` de cada carpeta, solo si la ruta es `/system/app/<nombre>` o `/system/priv-app/<nombre>`.
@@ -33,7 +34,10 @@ probado**: revísalo antes de fiarte, y guarda el respaldo en un lugar seguro, p
 ## Qué se probó y qué no
 Probado con un `adb` simulado que devuelve salidas reales de una caja (sin tocar ninguna): el modo prueba no deja rastro; con
 `-Ejecutar` el orden de acciones es respaldo → root → desinstalar actualizaciones → borrar → unroot → reinicio; con un respaldo
-incompleto corta sin borrar nada; y escribir otra cosa que `BORRAR` cancela. Eso detectó un error real (una ruta con un solo
-resultado se leía como texto suelto) que ya está corregido.
-**No probado contra una caja real**: el comportamiento de `adb root`/`remount` en cada firmware, y que `du` y `find` existan en
-todos los Android 7. Por eso el modo prueba va primero: si algo no se parsea bien en esa caja, se ve ahí.
+incompleto (falta un archivo, otro tamaño o tamaño ilegible) corta sin borrar nada; y escribir otra cosa que `BORRAR` cancela.
+La prueba detectó un error real (una ruta con un solo resultado se leía como texto suelto), ya corregido.
+
+**En una caja real (RK322x, Android 7.1.2, 2026-11-01):** el modo prueba y `du` funcionaron, y el respaldo detectó un falso
+"incompleto" en `PrintSpooler` (la caja contaba 2 archivos y `adb pull` trajo 3). Por eso el chequeo pasó de comparar cantidades a
+comparar cada archivo con su tamaño; el script cortó antes de borrar nada, como debe.
+**Todavía no probado de punta a punta contra una caja real**: `adb root`/`remount` en cada firmware y el reinicio posterior.
