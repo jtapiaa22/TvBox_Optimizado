@@ -44,6 +44,9 @@ Lee `docs/LAUNCHER.md` y `docs/PROMPT-TVBOX-ANDROID-VIEJO.md` (este archivo) ant
   cualquiera en la LAN tendría shell: avísame y ciérralo al final.
 - Comprueba cómo sale la red (`dumpsys connectivity | grep Transports`) y pregúntame qué hay en los USB. Algunas
   cajas cortan los puertos USB mientras la depuración está activa.
+- **No te fíes de `getprop ro.build.version.release` ni de `/proc/meminfo`:** en cajas genéricas vienen falseados (la TV BOX-3 decía
+  Android 13 y 512 GB de RAM siendo Android 7.1.2 y ~1 GB). Usa `ro.build.fingerprint`, `ro.build.version.sdk` y la suma de `present`
+  en `/proc/zoneinfo` (páginas de 4 KB); para memoria en uso, `dumpsys meminfo`.
 
 ### 2. Respaldo antes de tocar nada
 Carpeta `tv-backup/`: `pm list packages -f`, `pm list packages -d`, `getprop`, `settings list system|secure|global`
@@ -52,6 +55,13 @@ y un `restore.ps1` que re-active todo lo que se desactive (ir agregándole líne
 ### 3. Debloat (primero `pm disable-user --user 0`; quitar del todo solo con respaldo y confirmación)
 - Clasifica los paquetes: telemetría/OTA del fabricante, apps de prueba de fábrica, apps preinstaladas inútiles,
   servicios de cast/mirroring, streaming.
+- **Antes de dar por buena una caja, busca agentes remotos y software ajeno** (la TV BOX-3 traía uno de fábrica; ver
+  `devices/tvbox-3-rk322x/README.md`). Revisa `pm list packages -3` y las apps de sistema con nombre raro, y por cada sospechosa:
+  `dumpsys package <pkg>` (`userId`, `firstInstallTime`, `lastUpdateTime`, `codePath`; ojo con las que corren como `system` o tienen una
+  actualización en `/data/app`), sus permisos concedidos (`INSTALL_PACKAGES`, `DELETE_PACKAGES`, `WRITE_SECURE_SETTINGS`, accesibilidad), y
+  `cat /proc/net/tcp`: la columna `uid` dice qué app tiene cada conexión. Compara los certificados de los APK (`inspect_apk_signature` o
+  `apksigner verify --print-certs`): varias apps con **la misma firma** que se actualizan desde afuera son una pista fuerte. Respalda el APK
+  antes de quitarla y desactiva primero (`pm disable-user`) para ver si algo se rompe. No ejecutes esas apps: analízalas en el PC.
 - En la MXQ Pro 5G se desactivó: `com.adups.fota` (telemetría Adups), `com.rockchip.devicetest`,
   `com.example.txczdevicetest`, `com.DeviceTest`, `com.cghs.stresstest`, `com.android.music`,
   `com.android.calculator2`, `com.android.htmlviewer`, `com.android.printspooler`,
