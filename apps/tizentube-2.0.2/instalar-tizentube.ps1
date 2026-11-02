@@ -71,6 +71,13 @@ if ($ttInstalado -ge $codigo -and -not $Reinstalar) {
     if (-not (Test-Path $archivo)) {
         Write-Host "Bajando TizenTube 2.0.2 (~93 MB) de la pagina oficial..." -ForegroundColor Cyan
         & curl.exe -L --fail --silent --show-error -o $archivo $url
+        if ($LASTEXITCODE -eq 35) {
+            # Error de schannel (p. ej. CRYPT_E_REVOCATION_OFFLINE): Windows no pudo consultar la revocacion del certificado
+            # (red, antivirus o proxy de esa PC). Se reintenta sin esa consulta: el SHA-256 de abajo garantiza igual el archivo.
+            Write-Host "Windows no pudo comprobar la revocacion del certificado. Reintento sin esa comprobacion (el hash se verifica igual)." -ForegroundColor Yellow
+            if ((Test-Path $archivo) -and ((Get-Item $archivo).Length -eq 0)) { Remove-Item $archivo -Force }
+            & curl.exe -L --fail --silent --show-error --ssl-no-revoke -o $archivo $url
+        }
         if ($LASTEXITCODE) { throw "No se pudo bajar el APK de $url" }
     }
     $hash = (Get-FileHash $archivo -Algorithm SHA256).Hash
