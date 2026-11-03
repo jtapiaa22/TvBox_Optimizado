@@ -738,8 +738,10 @@ public class Launcher extends Activity {
         Long n = useN.get(pkg), l = useL.get(pkg);
         if (n == null || n == 0) return "Todavía sin abrir";
         String t = "Abierta " + (n == 1 ? "1 vez" : n + " veces");
-        if (l != null) {
-            long m = Math.max(0, (System.currentTimeMillis() - l) / 60000);
+        // la caja no tiene reloj propio: tras desenchufarla la hora arranca atrasada hasta que sincroniza. Si la ultima
+        // vez queda "en el futuro", la hora no es fiable y mejor no mostrarla (antes salia "recién").
+        if (l != null && l <= System.currentTimeMillis()) {
+            long m = (System.currentTimeMillis() - l) / 60000;
             long h = m / 60, dd = h / 24;
             t += "   ·   " + (m < 1 ? "recién" : m < 60 ? "hace " + m + " min"
                     : h < 24 ? "hace " + h + (h == 1 ? " hora" : " horas")
@@ -1122,6 +1124,7 @@ public class Launcher extends Activity {
         settingsPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(Math.min(dockCells.size() - 1, 3)).getId());
 
         setContentView(root);
+        final boolean coldStart = !introPlayed;   // primera pantalla de este proceso: recien encendida la caja o launcher reiniciado
         if (!introPlayed) {
             introPlayed = true; // entrance animation: once per process, not on every recreate()
             intro(head, -dp(24), 0);
@@ -1131,7 +1134,8 @@ public class Launcher extends Activity {
         }
 
         // restore last focused tile
-        final String last = prefs.getString("last", null);
+        // al arrancar de cero el foco va a la primera app; el ultimo foco solo se recuerda al rearmar la pantalla
+        final String last = coldStart ? null : prefs.getString("last", null);
         View start = dockCells.isEmpty() ? null : dockCells.get(0);
         if (last != null) {
             for (View v : dockCells) if (last.equals(v.getTag())) start = v;
