@@ -85,6 +85,18 @@ public class Launcher extends Activity {
     // Orden del dock: Manual respeta el orden que la persona armo (modo Mover); los demas lo ordenan solos
     private static final String[] ORDER_NAMES = {"Manual", "Alfabético", "Más usadas", "Últimas usadas"};
 
+    // Temas: arriba, medio y abajo del degradado de fondo + color de acento (vidrio, botones, borde). 0 = automatico por hora.
+    private static final String[] THEME_NAMES = {"Automático (según la hora)", "Celeste y blanco", "Noche", "Atardecer", "Amanecer", "Monocromo", "AMOLED"};
+    private static final int[][] THEMES = {
+        {0, 0, 0, 0},   // automatico: se resuelve a uno de los de abajo
+        {0xFF16406B, 0xFF0A1F36, 0xFF030810, 0xFF75AADB},   // celeste y blanco
+        {0xFF111B2E, 0xFF070A12, 0xFF000000, 0xFF6C8CFF},   // noche
+        {0xFF3A1A3F, 0xFF1A0E22, 0xFF050208, 0xFFFF8A5B},   // atardecer
+        {0xFF40294A, 0xFF1D1226, 0xFF050308, 0xFFFFB38A},   // amanecer
+        {0xFF1A1A1A, 0xFF0B0B0B, 0xFF000000, 0xFFDDDDDD},   // monocromo
+        {0xFF000000, 0xFF000000, 0xFF000000, 0xFFFFFFFF},   // amoled
+    };
+
     private static class Entry {
         String pkg, label;
         Intent intent;
@@ -115,6 +127,12 @@ public class Launcher extends Activity {
     private int glowColor = 0x003A6EA5;
     private ValueAnimator glowAnim;
     private static boolean introPlayed;
+    private int themeIdx, themeBuilt;   // themeBuilt: tema real (1..) con el que se armo la pantalla
+    private int[] theme;
+    private GradientDrawable hlDraw;
+    private TextView dockSub;          // linea bajo el nombre: cuantas veces y cuando se uso la app
+    private ImageView bgImg;           // fondo de imagen: se desplaza un poco con el foco (parallax)
+    private Map<String, Long> useN = new HashMap<>(), useL = new HashMap<>();
     private TextView dockName, wifiPill, settingsPill;
     private final List<View> dockCells = new ArrayList<>();
     private SharedPreferences prefs;
@@ -147,6 +165,9 @@ public class Launcher extends Activity {
         hlPad = Math.max(HL_PAD, (int) Math.ceil((zoom - 1) * tileW / 2) + 8);   // el vidrio abarca la tarjeta ya ampliada
         glowOn = prefs.getBoolean("glow", true);
         order = pref("dock_order", 0, ORDER_NAMES.length);
+        themeIdx = pref("theme", 0, THEMES.length);
+        themeBuilt = resolveTheme();
+        theme = THEMES[themeBuilt];
         build();
 
         pkgReceiver = new BroadcastReceiver() {
@@ -396,6 +417,10 @@ public class Launcher extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (themeIdx == 0 && resolveTheme() != themeBuilt) { // cambio la franja horaria: rearma con el tema nuevo
+            recreate();
+            return;
+        }
         if (usedDirty) {
             // al volver de una app, "Más usadas" / "Últimas usadas" se reordenan. Se hace en onResume y no en onRestart
             // porque el panel de Ajustes de Android TV es translucido: el launcher se pausa pero nunca se detiene.
@@ -626,6 +651,30 @@ public class Launcher extends Activity {
 
     private PillIcon pillIcon(int kind) { return new PillIcon(kind, dp(24)); }
 
+    /** Tema efectivo: el elegido, o (en Automatico) uno por franja horaria: amanecer, dia, atardecer, noche. */
+    private int resolveTheme() {
+        if (themeIdx != 0) return themeIdx;
+        int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (h >= 6 && h < 10) return 4;
+        if (h >= 10 && h < 17) return 1;
+        if (h >= 17 && h < 20) return 3;
+        return 2;
+    }
+
+    private String useLine(String pkg) {
+        Long n = useN.get(pkg), l = useL.get(pkg);
+        if (n == null || n == 0) return "Todavía sin abrir";
+        String t = "Abierta " + (n == 1 ? "1 vez" : n + " veces");
+        if (l != null) {
+            long m = Math.max(0, (System.currentTimeMillis() - l) / 60000);
+            long h = m / 60, dd = h / 24;
+            t += "   ·   " + (m < 1 ? "recién" : m < 60 ? "hace " + m + " min"
+                    : h < 24 ? "hace " + h + (h == 1 ? " hora" : " horas")
+                    : "hace " + dd + (dd == 1 ? " día" : " días"));
+        }
+        return t;
+    }
+
     private String greeting() {
         int h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
         if (h < 6) return "Buenas noches";
@@ -802,7 +851,7 @@ public class Launcher extends Activity {
         java.io.File bgFile = selectedBackground();
         if (bgFile == null) { // sin fondo propio: degradado azul muy oscuro en vez de negro plano
             root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                    new int[]{0xFF111B2E, 0xFF070A12, 0xFF000000}));
+                    new int[]{theme[0], theme[1], theme[2]}));
         }
         Bitmap bgBmp = bgFile != null && !isVideo(bgFile) ? loadBackground(bgFile) : null;
         boolean bgVideo = bgFile != null && isVideo(bgFile);
@@ -811,6 +860,9 @@ public class Launcher extends Activity {
             ImageView bgView = new ImageView(this);
             bgView.setScaleType(ImageView.ScaleType.CENTER_CROP);
             bgView.setImageBitmap(bgBmp);
+            bgView.setScaleX(1.08f);
+            bgView.setScaleY(1.08f);
+            bgImg = bgView;
             root.addView(bgView, new FrameLayout.LayoutParams(-1, -1));
         }
         if (bgBmp != null || bgVideo) {
@@ -823,7 +875,9 @@ public class Launcher extends Activity {
 
         // glass highlight
         hl = new View(this);
-        hl.setBackground(round(0x38FFFFFF, cardRadius + 6));
+        hlDraw = round(0x38FFFFFF, cardRadius + 6);
+        hlDraw.setStroke(dp(3), (theme[3] & 0x00FFFFFF) | 0xCC000000);   // borde de color: acento del tema, luego el de cada app
+        hl.setBackground(hlDraw);
         hl.setAlpha(0f);
         content.addView(hl, new FrameLayout.LayoutParams(dp(tileW + 2 * hlPad), dp(tileH + 2 * hlPad)));
 
@@ -933,12 +987,25 @@ public class Launcher extends Activity {
         dockName.setTypeface(Typeface.create("sans-serif", Typeface.BOLD_ITALIC)); // nombre de la app: negrita cursiva
         FrameLayout.LayoutParams np = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
         np.leftMargin = dp(MARGIN + BAND_PAD);
-        np.bottomMargin = dp(BAND_BOTTOM + bandH + 22);
+        np.bottomMargin = dp(BAND_BOTTOM + bandH + 22 + 34);
         screen.addView(dockName, np);
+        useN = readUse("use_count");
+        useL = readUse("use_last");
+        dockSub = text("", 20.5f, "sans-serif");
+        dockSub.setAlpha(0.8f);
+        dockSub.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
+        FrameLayout.LayoutParams sub = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.START);
+        sub.leftMargin = dp(MARGIN + BAND_PAD + 4);
+        sub.bottomMargin = dp(BAND_BOTTOM + bandH + 18);
+        screen.addView(dockSub, sub);
 
         // dock band
         LinearLayout band = new LinearLayout(this);
-        band.setBackground(round(0x1EFFFFFF, 34));
+        GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{(theme[3] & 0x00FFFFFF) | 0x3A000000, (theme[3] & 0x00FFFFFF) | 0x18000000});
+        glass.setCornerRadius(dp(34));
+        glass.setStroke(Math.max(1, dp(1)), 0x44FFFFFF);   // borde de cristal: luz en el canto
+        band.setBackground(glass);
         FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, dp(bandH), Gravity.BOTTOM | Gravity.START);
         bp.leftMargin = dp(MARGIN);
         bp.rightMargin = dp(MARGIN); // caps the band width: with many apps the dock scrolls sideways
@@ -1108,7 +1175,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme"};
 
     /** Boton "Ajustes" de arriba: elegir entre los ajustes de Android y los del launcher. */
     private void showSettingsChoice() {
@@ -1130,6 +1197,7 @@ public class Launcher extends Activity {
         items.add("Tamaño de las tarjetas: " + CARD_SIZE_NAMES[pref("card_size", 1, CARD_SIZE_NAMES.length)]);
         items.add("Esquinas: " + CARD_CORNER_NAMES[pref("card_corners", 1, CARD_CORNER_NAMES.length)]);
         items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
+        items.add("Tema: " + THEME_NAMES[themeIdx]);
         items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
         final java.io.File cur = selectedBackground();
         items.add("Fondo: " + (cur != null ? cur.getName() : listBackgrounds().isEmpty() ? "no hay archivos" : "Ninguno"));
@@ -1146,6 +1214,7 @@ public class Launcher extends Activity {
                         else if (it.startsWith("Tamaño")) choose("Tamaño de las tarjetas", "card_size", CARD_SIZE_NAMES, 1);
                         else if (it.startsWith("Esquinas")) choose("Esquinas", "card_corners", CARD_CORNER_NAMES, 1);
                         else if (it.startsWith("Zoom")) choose("Zoom al enfocar", "card_zoom", CARD_ZOOM_NAMES, 2);
+                        else if (it.startsWith("Tema")) choose("Tema", "theme", THEME_NAMES, 0);
                         else if (it.startsWith("Brillo")) {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
                             recreate();
@@ -1404,17 +1473,19 @@ public class Launcher extends Activity {
         t.setPadding(dp(24), dp(12), dp(26), dp(12));
         t.setCompoundDrawablePadding(dp(10));
         t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setBackground(round(0x2EFFFFFF, 30));
+        final int pillIdle = (theme[3] & 0x00FFFFFF) | 0x33000000;
+        t.setBackground(round(pillIdle, 30));
         t.setFocusable(true);
         t.setClickable(true);
         t.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
-                t.setBackground(round(has ? 0x80FFFFFF : 0x2EFFFFFF, 30));
+                t.setBackground(round(has ? 0x80FFFFFF : pillIdle, 30));
                 t.animate().scaleX(has ? 1.08f : 1f).scaleY(has ? 1.08f : 1f).setDuration(150).start();
                 if (has) {
                     hl.animate().alpha(0f).setDuration(120).start();
                     hlShown = false;
                     dockName.setText("");
+                    dockSub.setText("");
                     scroll.smoothScrollTo(0, 0);
                 }
             }
@@ -1470,6 +1541,17 @@ public class Launcher extends Activity {
                 if (!has) return;
                 prefs.edit().putString("last", e.pkg).apply();
                 moveHighlight(img);
+                hlDraw.setStroke(dp(3), (e.color & 0x00FFFFFF) | 0xDD000000);
+                dockSub.setText(useLine(e.pkg));
+                dockSub.setAlpha(0f);
+                dockSub.animate().alpha(0.8f).setStartDelay(60).setDuration(220).start();
+                if (bgImg != null) {
+                    int[] loc = new int[2];
+                    img.getLocationOnScreen(loc);
+                    float cx = (loc[0] + img.getWidth() / 2f) / sw;
+                    bgImg.animate().translationX((0.5f - cx) * dp(30)).setDuration(450)
+                            .setInterpolator(new DecelerateInterpolator()).start();
+                }
                 dockName.setText(movingPkg != null ? "↔ " + e.label : e.label);
                 dockName.setAlpha(0f);
                 dockName.setTranslationY(dp(10));
