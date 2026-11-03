@@ -1147,10 +1147,10 @@ public class Launcher extends Activity {
         return false;
     }
 
-    private void launch(Entry e) {
+    private void launch(Entry e, View from) {
         recordUse(e.pkg);
         usedDirty = order >= 2;
-        start(e.intent);
+        start(e.intent, from);
     }
 
     // ---- uso de las apps (para ordenar el dock por "Más usadas" / "Últimas usadas"); es propio de cada caja y no se exporta
@@ -1252,7 +1252,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style", "open_anim"};
 
     /** Boton "Ajustes" de arriba: elegir entre los ajustes de Android y los del launcher. */
     private void showSettingsChoice() {
@@ -1276,6 +1276,7 @@ public class Launcher extends Activity {
         items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
         items.add("Tema: " + THEME_NAMES[themeIdx]);
         items.add("Reloj: " + CLOCK_STYLE_NAMES[pref("clock_style", 0, CLOCK_STYLE_NAMES.length)]);
+        items.add("Animación al abrir apps: " + (prefs.getBoolean("open_anim", true) ? "Sí" : "No"));
         items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
         final java.io.File cur = selectedBackground();
         items.add("Fondo: " + (cur != null ? cur.getName() : listBackgrounds().isEmpty() ? "no hay archivos" : "Ninguno"));
@@ -1294,6 +1295,10 @@ public class Launcher extends Activity {
                         else if (it.startsWith("Zoom")) choose("Zoom al enfocar", "card_zoom", CARD_ZOOM_NAMES, 2);
                         else if (it.startsWith("Tema")) choose("Tema", "theme", THEME_NAMES, 0);
                         else if (it.startsWith("Reloj")) choose("Reloj", "clock_style", CLOCK_STYLE_NAMES, 0);
+                        else if (it.startsWith("Animación")) {
+                            prefs.edit().putBoolean("open_anim", !prefs.getBoolean("open_anim", true)).apply();
+                            recreate();
+                        }
                         else if (it.startsWith("Brillo")) {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
                             recreate();
@@ -1607,7 +1612,7 @@ public class Launcher extends Activity {
         c.addView(img, new LinearLayout.LayoutParams(dp(tileW), dp(tileH)));
 
         c.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { launch(e); }
+            @Override public void onClick(View v) { launch(e, v); }
         });
         longActions.put(c, new Runnable() {
             @Override public void run() { showMenu(e); }
@@ -1697,13 +1702,24 @@ public class Launcher extends Activity {
     }
 
     private void start(Intent i) {
+        start(i, null);
+    }
+
+    /** `from`: la tarjeta tocada; con "Animacion al abrir" la app crece desde ella en vez de aparecer de golpe. */
+    private void start(Intent i, View from) {
         // settings actions resolve to the phone-style com.android.settings; prefer the Android TV one
         if (i.getComponent() == null && i.getAction() != null && i.getAction().startsWith("android.settings.")) {
             Intent tv = new Intent(i).setPackage("com.android.tv.settings");
             if (getPackageManager().resolveActivity(tv, 0) != null) i = tv;
         }
         try {
-            startActivity(i);
+            if (from != null && from.getWidth() > 0 && prefs.getBoolean("open_anim", true)) {
+                android.app.ActivityOptions o = android.app.ActivityOptions.makeScaleUpAnimation(
+                        from, 0, 0, from.getWidth(), from.getHeight());
+                startActivity(i, o.toBundle());
+            } else {
+                startActivity(i);
+            }
         } catch (Exception ignored) { }
     }
 }
