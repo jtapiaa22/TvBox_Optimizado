@@ -37,6 +37,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -113,6 +114,7 @@ public class Launcher extends Activity {
     private float glowCx = 0.25f, glowCy = 0.84f;
     private int glowColor = 0x003A6EA5;
     private ValueAnimator glowAnim;
+    private static boolean introPlayed;
     private TextView dockName, wifiPill, settingsPill;
     private final List<View> dockCells = new ArrayList<>();
     private SharedPreferences prefs;
@@ -798,6 +800,10 @@ public class Launcher extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         java.io.File bgFile = selectedBackground();
+        if (bgFile == null) { // sin fondo propio: degradado azul muy oscuro en vez de negro plano
+            root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{0xFF111B2E, 0xFF070A12, 0xFF000000}));
+        }
         Bitmap bgBmp = bgFile != null && !isVideo(bgFile) ? loadBackground(bgFile) : null;
         boolean bgVideo = bgFile != null && isVideo(bgFile);
         if (bgVideo) setupVideo(bgFile);
@@ -972,6 +978,13 @@ public class Launcher extends Activity {
         settingsPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(Math.min(dockCells.size() - 1, 3)).getId());
 
         setContentView(root);
+        if (!introPlayed) {
+            introPlayed = true; // entrance animation: once per process, not on every recreate()
+            intro(head, -dp(24), 0);
+            intro(pills, -dp(24), 120);
+            band.setAlpha(0f);
+            band.animate().alpha(1f).setStartDelay(220).setDuration(500).start(); // alpha only: the highlight tracks its position
+        }
 
         // restore last focused tile
         final String last = prefs.getString("last", null);
@@ -1452,16 +1465,28 @@ public class Launcher extends Activity {
         c.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
                 float s = has ? zoom : 1f;
-                img.animate().scaleX(s).scaleY(s).setDuration(180).start();
+                img.animate().scaleX(s).scaleY(s).setDuration(has ? 220 : 160)
+                        .setInterpolator(new DecelerateInterpolator()).start();
                 if (!has) return;
                 prefs.edit().putString("last", e.pkg).apply();
                 moveHighlight(img);
                 dockName.setText(movingPkg != null ? "↔ " + e.label : e.label);
+                dockName.setAlpha(0f);
+                dockName.setTranslationY(dp(10));
+                dockName.animate().alpha(1f).translationY(0f).setDuration(220)
+                        .setInterpolator(new DecelerateInterpolator()).start();
                 setGlow(e.color, img, 0);
                 scroll.smoothScrollTo(0, 0);
             }
         });
         return c;
+    }
+
+    private void intro(View v, float fromY, long delay) {
+        v.setAlpha(0f);
+        v.setTranslationY(fromY);
+        v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(450)
+                .setInterpolator(new DecelerateInterpolator(1.5f)).start();
     }
 
     private void moveHighlight(final View img) {
