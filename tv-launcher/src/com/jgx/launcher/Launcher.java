@@ -97,6 +97,8 @@ public class Launcher extends Activity {
         {0xFF000000, 0xFF000000, 0xFF000000, 0xFFFFFFFF},   // amoled
     };
 
+    private static final String[] CLOCK_STYLE_NAMES = {"Cuadro", "Clásico"};
+
     private static class Entry {
         String pkg, label;
         Intent intent;
@@ -661,6 +663,77 @@ public class Launcher extends Activity {
         return 2;
     }
 
+    /** Reloj y fecha en un cuadro de vidrio: saludo arriba, hora a la izquierda y la fecha como "hoja de calendario" a la derecha. */
+    private void buildClockCard(LinearLayout head) {
+        GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{(theme[3] & 0x00FFFFFF) | 0x3A000000, (theme[3] & 0x00FFFFFF) | 0x18000000});
+        glass.setCornerRadius(dp(26));
+        glass.setStroke(Math.max(1, dp(1)), 0x44FFFFFF);
+        head.setBackground(glass);
+        head.setPadding(dp(22), dp(12), dp(22), dp(14));
+
+        TextView greet = text(greeting(), 18f, "sans-serif-medium");
+        greet.setAlpha(0.8f);
+        greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
+        head.addView(greet);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(row, new LinearLayout.LayoutParams(-2, -2));
+
+        TextClock clock = new TextClock(this);
+        clock.setFormat24Hour("HH:mm");
+        clock.setFormat12Hour("h:mm");
+        clock.setTextColor(Color.WHITE);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, 68f * d);
+        clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        clock.setIncludeFontPadding(false);
+        clock.setShadowLayer(dp(4), 0, dp(2), 0xAA000000);
+        row.addView(clock);
+
+        View sep = new View(this);
+        sep.setBackgroundColor(0x40FFFFFF);
+        LinearLayout.LayoutParams sepLp = new LinearLayout.LayoutParams(Math.max(1, dp(1)), dp(64));
+        sepLp.leftMargin = dp(18);
+        sepLp.rightMargin = dp(18);
+        row.addView(sep, sepLp);
+
+        LinearLayout cal = new LinearLayout(this);
+        cal.setOrientation(LinearLayout.VERTICAL);
+        cal.setGravity(Gravity.CENTER_HORIZONTAL);
+        cal.setMinimumWidth(dp(96));
+        row.addView(cal, new LinearLayout.LayoutParams(-2, -2));
+
+        TextClock dow = new TextClock(this);   // dia de la semana, en mayusculas y con el color del tema
+        dow.setFormat24Hour("EEEE");
+        dow.setFormat12Hour("EEEE");
+        dow.setAllCaps(true);
+        dow.setLetterSpacing(0.12f);
+        dow.setTextColor((theme[3] & 0x00FFFFFF) | 0xFF000000);
+        dow.setTextSize(TypedValue.COMPLEX_UNIT_PX, 14f * d);
+        dow.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        dow.setIncludeFontPadding(false);
+        cal.addView(dow);
+
+        TextClock day = new TextClock(this);
+        day.setFormat24Hour("d");
+        day.setFormat12Hour("d");
+        day.setTextColor(Color.WHITE);
+        day.setTextSize(TypedValue.COMPLEX_UNIT_PX, 42f * d);
+        day.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
+        day.setIncludeFontPadding(false);
+        cal.addView(day);
+
+        TextClock month = new TextClock(this);
+        month.setFormat24Hour("MMMM");
+        month.setFormat12Hour("MMMM");
+        month.setTextColor(0xE6FFFFFF);
+        month.setTextSize(TypedValue.COMPLEX_UNIT_PX, 17f * d);
+        month.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        month.setIncludeFontPadding(false);
+        cal.addView(month);
+    }
+
     private String useLine(String pkg) {
         Long n = useN.get(pkg), l = useL.get(pkg);
         if (n == null || n == 0) return "Todavía sin abrir";
@@ -908,27 +981,31 @@ public class Launcher extends Activity {
         hp.leftMargin = dp(MARGIN);
         hp.topMargin = dp(30);
         screen.addView(head, hp);
-        TextView greet = text(greeting(), 26.6f, "sans-serif");
-        greet.setAlpha(0.95f);
-        greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
-        head.addView(greet);
-        TextClock clock = new TextClock(this);
-        clock.setFormat24Hour("HH:mm");
-        clock.setFormat12Hour("h:mm");
-        clock.setTextColor(Color.WHITE);
-        clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, 98.8f * d);
-        clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
-        clock.setIncludeFontPadding(false);
-        clock.setShadowLayer(dp(5), 0, dp(3), 0xAA000000);
-        head.addView(clock);
-        TextClock date = new TextClock(this);
-        date.setFormat24Hour("EEEE d 'de' MMMM");
-        date.setFormat12Hour("EEEE d 'de' MMMM");
-        date.setTextColor(0xF2FFFFFF);
-        date.setTextSize(TypedValue.COMPLEX_UNIT_PX, 24.7f * d);
-        date.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
-        date.setShadowLayer(dp(4), 0, dp(2), 0xAA000000);
-        head.addView(date);
+        if (pref("clock_style", 0, CLOCK_STYLE_NAMES.length) == 1) {
+            TextView greet = text(greeting(), 26.6f, "sans-serif");
+            greet.setAlpha(0.95f);
+            greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
+            head.addView(greet);
+            TextClock clock = new TextClock(this);
+            clock.setFormat24Hour("HH:mm");
+            clock.setFormat12Hour("h:mm");
+            clock.setTextColor(Color.WHITE);
+            clock.setTextSize(TypedValue.COMPLEX_UNIT_PX, 98.8f * d);
+            clock.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
+            clock.setIncludeFontPadding(false);
+            clock.setShadowLayer(dp(5), 0, dp(3), 0xAA000000);
+            head.addView(clock);
+            TextClock date = new TextClock(this);
+            date.setFormat24Hour("EEEE d 'de' MMMM");
+            date.setFormat12Hour("EEEE d 'de' MMMM");
+            date.setTextColor(0xF2FFFFFF);
+            date.setTextSize(TypedValue.COMPLEX_UNIT_PX, 24.7f * d);
+            date.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
+            date.setShadowLayer(dp(4), 0, dp(2), 0xAA000000);
+            head.addView(date);
+        } else {
+            buildClockCard(head);
+        }
 
         // top-right pills
         LinearLayout pills = new LinearLayout(this);
@@ -1175,7 +1252,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style"};
 
     /** Boton "Ajustes" de arriba: elegir entre los ajustes de Android y los del launcher. */
     private void showSettingsChoice() {
@@ -1198,6 +1275,7 @@ public class Launcher extends Activity {
         items.add("Esquinas: " + CARD_CORNER_NAMES[pref("card_corners", 1, CARD_CORNER_NAMES.length)]);
         items.add("Zoom al enfocar: " + CARD_ZOOM_NAMES[pref("card_zoom", 2, CARD_ZOOM_NAMES.length)]);
         items.add("Tema: " + THEME_NAMES[themeIdx]);
+        items.add("Reloj: " + CLOCK_STYLE_NAMES[pref("clock_style", 0, CLOCK_STYLE_NAMES.length)]);
         items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
         final java.io.File cur = selectedBackground();
         items.add("Fondo: " + (cur != null ? cur.getName() : listBackgrounds().isEmpty() ? "no hay archivos" : "Ninguno"));
@@ -1215,6 +1293,7 @@ public class Launcher extends Activity {
                         else if (it.startsWith("Esquinas")) choose("Esquinas", "card_corners", CARD_CORNER_NAMES, 1);
                         else if (it.startsWith("Zoom")) choose("Zoom al enfocar", "card_zoom", CARD_ZOOM_NAMES, 2);
                         else if (it.startsWith("Tema")) choose("Tema", "theme", THEME_NAMES, 0);
+                        else if (it.startsWith("Reloj")) choose("Reloj", "clock_style", CLOCK_STYLE_NAMES, 0);
                         else if (it.startsWith("Brillo")) {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
                             recreate();
