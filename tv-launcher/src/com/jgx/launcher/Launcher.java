@@ -60,6 +60,7 @@ public class Launcher extends Activity {
     // package, label override (null = app label), fallback action when the package has no launcher entry
     private static final String[][] DOCK = {
         {"com.jgx.iptv", null, null},
+        {"io.gh.reisxd.tizentube.cobalt", null, null},
         {"com.esaba.downloader", null, null},
         {"com.android.vending", null, null},
         {"com.android.tv.settings", "Ajustes", Settings.ACTION_SETTINGS},
@@ -68,7 +69,7 @@ public class Launcher extends Activity {
     // proposito (explorador "Descargas" de Android y WifiDisplay de Rockchip). Quita una linea para verlas.
     private static final String[] HIDDEN = {
         "com.droidlogic.mboxlauncher", "com.jgx.launcher",
-        "com.android.documentsui", "com.rockchip.wfd",
+        "com.android.documentsui", "com.rockchip.wfd", "com.android.tv.quicksettings",
     };
     private static final int TILE_W = 240, TILE_H = 135, GAP = 28, HL_PAD = 20;   // tamano "Normal" de la tarjeta
     private static final int MARGIN = 60, BAND_PAD = 30, BAND_BOTTOM = 56;
