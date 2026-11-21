@@ -136,7 +136,7 @@ public class Launcher extends Activity {
     private TextView dockSub;          // linea bajo el nombre: cuantas veces y cuando se uso la app
     private ImageView bgImg;           // fondo de imagen: se desplaza un poco con el foco (parallax)
     private Map<String, Long> useN = new HashMap<>(), useL = new HashMap<>();
-    private TextView dockName, wifiPill, settingsPill;
+    private TextView dockName, wifiPill, settingsPill, greetView;
     private final List<View> dockCells = new ArrayList<>();
     private SharedPreferences prefs;
     private BroadcastReceiver pkgReceiver;
@@ -560,6 +560,8 @@ public class Launcher extends Activity {
                 name = info.getSSID();
                 if (name != null) name = name.replace("\"", "");
                 if ("<unknown ssid>".equals(name)) name = null;
+                // un nombre de red largo (22 letras en una TV BOX-3) empujaba la barra encima del reloj
+                if (name != null && name.length() > 14) name = name.substring(0, 13).trim() + "…";
             }
         } catch (Exception ignored) { }
         int speed = -1;
@@ -673,7 +675,7 @@ public class Launcher extends Activity {
         head.setBackground(glass);
         head.setPadding(dp(22), dp(12), dp(22), dp(14));
 
-        TextView greet = text(greeting(), 18f, "sans-serif-medium");
+        TextView greet = greetView = text(greeting(), 18f, "sans-serif-medium");
         greet.setAlpha(0.8f);
         greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
         head.addView(greet);
@@ -985,7 +987,7 @@ public class Launcher extends Activity {
         hp.topMargin = dp(30);
         screen.addView(head, hp);
         if (pref("clock_style", 0, CLOCK_STYLE_NAMES.length) == 1) {
-            TextView greet = text(greeting(), 26.6f, "sans-serif");
+            TextView greet = greetView = text(greeting(), 26.6f, "sans-serif");
             greet.setAlpha(0.95f);
             greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.ITALIC));
             head.addView(greet);
@@ -1448,6 +1450,8 @@ public class Launcher extends Activity {
         @Override public void run() {
             updateStats();
             updateWifi();
+            // el launcher arranca antes de que la caja sincronice la hora: sin esto el saludo quedaba en "Buenas noches"
+            if (greetView != null) greetView.setText(greeting());
             if (stats != null) stats.postDelayed(this, 5000);
         }
     };

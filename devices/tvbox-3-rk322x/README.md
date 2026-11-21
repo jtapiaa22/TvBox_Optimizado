@@ -79,3 +79,29 @@ Toda la caja se manejó por **ADB a través de una notebook en otra red** (acces
 - Los scripts del repo tenían la ruta del SDK de una PC fija: ahora usan el `adb` del PATH si no está (`instalar-downloader.ps1`, `play-services.ps1`).
 - `instalar-tizentube.ps1` reintenta la descarga sin consultar la revocación del certificado si Windows falla con el error 35.
 - Los APK y las librerías de la caja no están en el repo; el análisis y los respaldos viven en el PC del usuario.
+
+## Segunda caja del mismo modelo (2026-11-21)
+Otra TV BOX-3 con el mismo firmware (`eng.akrd2.20250519.170310`, `ro.adb.secure=1`, `adb root` funciona). Venía **con la misma
+infección**: los APK de `core.rss`, `lssa.service`, `domain.rk`, `netservice` 3.6.0 y `RkAlarm` tienen **exactamente los mismos SHA-256**
+que los de la primera caja. Al conectarse, `core.rss` tenía **16 conexiones TCP establecidas** (todas de su uid, puertos 109–245).
+
+**Agente nuevo que la primera caja no tenía:** `com.soft.backup` 2.0 (SHA-256 `2e994ec1…7892`), corre como uid `system` (1000), en `/data/app`,
+instalado por `netservice` el 2026-11-14. Desinstalado con `pm uninstall` (APK respaldado, no se analizó).
+`netservice` también había instalado solo tres apps IPTV (`com.unitvnet.tvod`, `com.global.unitviptv`, `com.world.youcinetv`) el 2026-10-21.
+
+Orden que funcionó: respaldo de los APK → `pm disable-user` de los agentes empezando por los que instalan (`netservice`, `lssa`, `domain.rk`,
+`soft.backup`) → comprobar 0 conexiones → `pm uninstall` de los que viven en `/data/app` → debloat → launcher → `limpiar-apps-desactivadas`.
+Tras reiniciar no volvió nada y no hubo conexiones establecidas.
+
+Diferencias con la primera caja:
+- **Play Store y Play Services se dejaron encendidos** a pedido del usuario (RAM libre según `dumpsys meminfo`: ~350–435 MB).
+- **El launcher de fábrica (`com.droidlogic.mboxlauncher.fkr`, `/system/app/MXQ-4K_RK`) se reactivó en *cada* reinicio** (dos seguidos), no
+  solo en el primero como en la MXQ. Se resolvió borrándolo de `/system` junto con lo demás (desactivarlo justo antes de correr el script).
+- Se instaló Downloader 1.5.1 en lugar del 2.0.4 que traía, y XtremeTV 40.6 (minSdk 24).
+
+Arreglos que salieron de esta caja (PC con espacios en la ruta de usuario):
+- `limpiar-apps-desactivadas.ps1`: `adb pull ... "$dest\"` no copiaba nada si la ruta tenía espacios (PowerShell 5.1 pasa `\"` como comilla
+  literal). El chequeo de respaldo lo detectó y no se borró nada; corregido.
+- `tv-launcher/build.ps1`: faltaba `-encoding UTF-8` en `javac`; en un Windows en español los acentos salían como `dÃas`.
+- Launcher: un SSID largo empujaba los botones encima del reloj (ahora se recorta a 14 letras) y el saludo quedaba en "Buenas noches" si el
+  launcher arrancaba antes de sincronizar la hora (ahora se refresca cada 5 s con el resto de la barra).

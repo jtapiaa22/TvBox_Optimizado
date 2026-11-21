@@ -101,7 +101,8 @@ foreach ($it in $plan) {
     $dest = Join-Path $Respaldo $sub
     New-Item -ItemType Directory -Force $dest | Out-Null
     Write-Host "Respaldando $($it.Carpeta)..."
-    & $adb -s $dev pull $it.Carpeta "$dest\" | Out-Null
+    # sin "\" al final: con espacios en la ruta, PowerShell 5.1 convierte \" en una comilla literal y adb no copia nada
+    & $adb -s $dev pull $it.Carpeta $dest | Out-Null
     # Cada archivo regular de la caja tiene que estar en la PC con el MISMO tamano (los enlaces simbolicos que adb copia de mas no molestan)
     $archivos = @((Invoke-Adb shell "find $($it.Carpeta) -type f") | ForEach-Object { "$_".Trim() } | Where-Object { $_ -like "$($it.Carpeta)/*" })
     if ($archivos.Count -eq 0) { throw "No pude listar los archivos de $($it.Carpeta) para verificar el respaldo. No se borro NADA." }

@@ -41,7 +41,7 @@ New-Item -ItemType Directory "$out\classes" | Out-Null
 
 & "$bt\aapt2.exe" link --manifest "$root\AndroidManifest.xml" -I $jar --min-sdk-version 25 --target-sdk-version 25 -o "$out\base.apk"
 if ($LASTEXITCODE) { throw "aapt2 failed" }
-& "$jdk\javac.exe" --release 8 -Xlint:-options -cp $jar -d "$out\classes" (Get-ChildItem "$root\src" -Recurse -Filter *.java).FullName
+& "$jdk\javac.exe" --release 8 -encoding UTF-8 -Xlint:-options -cp $jar -d "$out\classes" (Get-ChildItem "$root\src" -Recurse -Filter *.java).FullName
 if ($LASTEXITCODE) { throw "javac failed" }
 $classes = (Get-ChildItem "$out\classes" -Recurse -Filter *.class).FullName
 & "$bt\d8.bat" --lib $jar --min-api 25 --output $out @classes
