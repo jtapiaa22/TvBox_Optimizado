@@ -15,6 +15,15 @@ verificó lo que la caja informa con `CodecInfo`**; no se probó reproducción r
 Esta caja no trae el decodificador "seguro" (`.secure`). Con firmwares de otra compilación el script se niega si no ve las 3
 coincidencias.
 
+**Tercera caja, otra TV BOX-3** (mismo firmware que la segunda, 2026-11-21): librería idéntica (`0d9d1620…`), y esta vez **con prueba
+real**: XtremeTV 40.6 sin modificar ofreció y reprodujo los canales en HD.
+
+**Cuarta caja, `MBOX`** (RK322x, `rk322x_box-userdebug 7.1.2 NHG47K rv.1.0.20250514`, 2026-11-21): **otra** `libstagefright.so`, del mismo
+tamaño (1 489 868 bytes) pero distinta (SHA-256 `e18ab03a8a4236af523071e8dcb05246b7919f56042b23e7ba867e5e240a399a`). El script la reconoció
+igual: `queryCapabilities` del mismo tamaño (2028) y las 3 comparaciones en las mismas posiciones relativas, corridas 0x90 (offsets de archivo
+`0x846b0`, `0x849aa`, `0x84a7a`). Parcheada: `951aa359f4e533dc7c64f0df3e40c880704405624eda3badcad374309384c85e`. Diagnóstico `8:1` → `8:8000`
+tras reiniciar; no se probó reproducción en una app.
+
 ## Síntoma
 Un canal ofrece un solo formato de baja calidad y la flecha arriba (menú de calidades) no deja elegir. En el log
 (`adb logcat`) el reproductor deja líneas como:

@@ -98,6 +98,8 @@ Diferencias con la primera caja:
 - **El launcher de fábrica (`com.droidlogic.mboxlauncher.fkr`, `/system/app/MXQ-4K_RK`) se reactivó en *cada* reinicio** (dos seguidos), no
   solo en el primero como en la MXQ. Se resolvió borrándolo de `/system` junto con lo demás (desactivarlo justo antes de correr el script).
 - Se instaló Downloader 1.5.1 en lugar del 2.0.4 que traía, y XtremeTV 40.6 (minSdk 24).
+- **Corrección de calidad H.264 con prueba real**: misma `libstagefright.so` (`0d9d1620…`), diagnóstico `8:1` → `8:8000` tras el parche y
+  un reinicio. El usuario probó XtremeTV 40.6 y **los canales en HD funcionaron** ("funciona excelente"): primera prueba real en una TV BOX-3.
 
 Arreglos que salieron de esta caja (PC con espacios en la ruta de usuario):
 - `limpiar-apps-desactivadas.ps1`: `adb pull ... "$dest\"` no copiaba nada si la ruta tenía espacios (PowerShell 5.1 pasa `\"` como comilla
