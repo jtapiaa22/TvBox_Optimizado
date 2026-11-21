@@ -129,6 +129,12 @@ public class Launcher extends Activity {
     private float glowCx = 0.25f, glowCy = 0.84f;
     private int glowColor = 0x003A6EA5;
     private ValueAnimator glowAnim;
+    // "respiracion" de la tarjeta enfocada (como Projectivy): crece y vuelve muy suave, sin parar, junto con el vidrio
+    private boolean breathOn;
+    private ValueAnimator breathAnim;
+    private View breathImg;
+    private static final float BREATH_AMP = 0.03f;   // 3 % de tamano
+    private static final long BREATH_MS = 1600;      // medio ciclo (crece en 1.6 s, vuelve en 1.6 s)
     private static boolean introPlayed;
     private int themeIdx, themeBuilt;   // themeBuilt: tema real (1..) con el que se armo la pantalla
     private int[] theme;
@@ -167,6 +173,7 @@ public class Launcher extends Activity {
         zoom = CARD_ZOOM_SCALE[pref("card_zoom", 2, CARD_ZOOM_SCALE.length)];
         hlPad = Math.max(HL_PAD, (int) Math.ceil((zoom - 1) * tileW / 2) + 8);   // el vidrio abarca la tarjeta ya ampliada
         glowOn = prefs.getBoolean("glow", true);
+        breathOn = prefs.getBoolean("breath", true);
         order = pref("dock_order", 0, ORDER_NAMES.length);
         themeIdx = pref("theme", 0, THEMES.length);
         themeBuilt = resolveTheme();
@@ -422,6 +429,7 @@ public class Launcher extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (breathAnim != null) breathAnim.resume();
         if (themeIdx == 0 && resolveTheme() != themeBuilt) { // cambio la franja horaria: rearma con el tema nuevo
             recreate();
             return;
@@ -451,6 +459,7 @@ public class Launcher extends Activity {
         super.onPause();
         if (stats != null) stats.removeCallbacks(statsTick);
         if (player != null) { try { player.pause(); } catch (Throwable ignored) { } } // el panel de Ajustes es translucido
+        if (breathAnim != null) breathAnim.pause();   // con otra app al frente no se gasta CPU en la respiracion
     }
 
     @Override
@@ -1261,7 +1270,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style", "open_anim"};
+    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style", "open_anim", "breath"};
 
     /** Boton "Ajustes" de arriba: elegir entre los ajustes de Android y los del launcher. */
     private void showSettingsChoice() {
@@ -1287,6 +1296,7 @@ public class Launcher extends Activity {
         items.add("Reloj: " + CLOCK_STYLE_NAMES[pref("clock_style", 0, CLOCK_STYLE_NAMES.length)]);
         items.add("Animación al abrir apps: " + (prefs.getBoolean("open_anim", true) ? "Sí" : "No"));
         items.add("Brillo de fondo: " + (glowOn ? "Sí" : "No"));
+        items.add("Respiración al seleccionar: " + (breathOn ? "Sí" : "No"));
         final java.io.File cur = selectedBackground();
         items.add("Fondo: " + (cur != null ? cur.getName() : listBackgrounds().isEmpty() ? "no hay archivos" : "Ninguno"));
         if (cur != null) items.add("Oscurecer fondo: " + BG_DIM_NAMES[pref("bg_dim", 2, BG_DIM_NAMES.length)]);
@@ -1310,6 +1320,10 @@ public class Launcher extends Activity {
                         }
                         else if (it.startsWith("Brillo")) {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
+                            recreate();
+                        }
+                        else if (it.startsWith("Respiración")) {
+                            prefs.edit().putBoolean("breath", !breathOn).apply();
                             recreate();
                         }
                         else if (it.startsWith("Fondo:")) showBackgroundChooser();
@@ -1650,10 +1664,12 @@ public class Launcher extends Activity {
         });
         c.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
+                if (!has && breathImg == img) stopBreath();   // antes de animar: si no, la respiracion pisaria la vuelta a 1x
                 float s = has ? zoom : 1f;
                 img.animate().scaleX(s).scaleY(s).setDuration(has ? 220 : 160)
                         .setInterpolator(new DecelerateInterpolator()).start();
                 if (!has) return;
+                startBreath(img);
                 prefs.edit().putString("last", e.pkg).apply();
                 moveHighlight(img);
                 hlDraw.setStroke(dp(3), (e.color & 0x00FFFFFF) | 0xDD000000);
@@ -1684,6 +1700,45 @@ public class Launcher extends Activity {
         v.setTranslationY(fromY);
         v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(450)
                 .setInterpolator(new DecelerateInterpolator(1.5f)).start();
+    }
+
+    /**
+     * Respiracion: la tarjeta enfocada y el vidrio crecen BREATH_AMP y vuelven, en bucle, y el vidrio late un poco de brillo.
+     * Arranca cuando termina el zoom de foco y el resorte del vidrio (300 ms) para no pelear con esas animaciones.
+     */
+    private void startBreath(final View img) {
+        stopBreath();
+        if (!breathOn || movingPkg != null) return;   // en el modo Mover la tarjeta ya se mueve: sin respiracion
+        breathImg = img;
+        breathAnim = ValueAnimator.ofFloat(0f, 1f);
+        breathAnim.setDuration(BREATH_MS);
+        breathAnim.setStartDelay(300);
+        breathAnim.setRepeatMode(ValueAnimator.REVERSE);
+        breathAnim.setRepeatCount(ValueAnimator.INFINITE);
+        breathAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        breathAnim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator a) {
+                float f = (Float) a.getAnimatedValue();
+                float s = 1f + BREATH_AMP * f;
+                img.setScaleX(zoom * s);
+                img.setScaleY(zoom * s);
+                hl.setScaleX(s);
+                hl.setScaleY(s);
+                hl.setAlpha(0.8f + 0.2f * f);
+            }
+        });
+        breathAnim.start();
+    }
+
+    private void stopBreath() {
+        if (breathAnim != null) breathAnim.cancel();
+        breathAnim = null;
+        breathImg = null;
+        if (hl != null) {
+            hl.setScaleX(1f);
+            hl.setScaleY(1f);
+            if (hlShown) hl.setAlpha(1f);
+        }
     }
 
     private void moveHighlight(final View img) {

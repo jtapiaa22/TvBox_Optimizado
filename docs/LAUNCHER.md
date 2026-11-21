@@ -137,6 +137,10 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
   - Zoom al enfocar (`card_zoom`): Sin zoom / Suave 1.05× / Normal 1.1× / Grande 1.2×. El vidrio ensancha su margen
     (`hlPad`) para seguir abarcando la tarjeta ampliada.
   - Brillo de fondo (`glow`): sí/no; apagado deja el fondo negro puro.
+  - Respiración al seleccionar (`breath`, sí por defecto): como en Projectivy, la tarjeta enfocada y el vidrio crecen un 3 % y vuelven en
+    bucle (1.6 s de ida y 1.6 s de vuelta, `AccelerateDecelerate`) y el vidrio late de brillo (alpha 0.8–1). Arranca 300 ms después del
+    foco para no pelear con el zoom y el resorte; se corta al cambiar de tarjeta y en el modo Mover, y se pausa con otra app al frente.
+    Constantes `BREATH_AMP` y `BREATH_MS`. Medido en el Onn: el borde del vidrio se mueve ~5 px por lado.
   - Un valor guardado fuera de rango (archivo editado a mano) cae al valor por defecto (`pref()`).
 - **Exportar ajustes** escribe `launcher-settings.json` en la carpeta externa propia de la app
   (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan
