@@ -103,5 +103,5 @@ Arreglos que salieron de esta caja (PC con espacios en la ruta de usuario):
 - `limpiar-apps-desactivadas.ps1`: `adb pull ... "$dest\"` no copiaba nada si la ruta tenía espacios (PowerShell 5.1 pasa `\"` como comilla
   literal). El chequeo de respaldo lo detectó y no se borró nada; corregido.
 - `tv-launcher/build.ps1`: faltaba `-encoding UTF-8` en `javac`; en un Windows en español los acentos salían como `dÃas`.
-- Launcher: un SSID largo empujaba los botones encima del reloj (ahora se recorta a 14 letras) y el saludo quedaba en "Buenas noches" si el
+- Launcher: un SSID largo empujaba los botones encima del reloj (ahora se recorta a 10 letras) y el saludo quedaba en "Buenas noches" si el
   launcher arrancaba antes de sincronizar la hora (ahora se refresca cada 5 s con el resto de la barra).

@@ -561,7 +561,7 @@ public class Launcher extends Activity {
                 if (name != null) name = name.replace("\"", "");
                 if ("<unknown ssid>".equals(name)) name = null;
                 // un nombre de red largo (22 letras en una TV BOX-3) empujaba la barra encima del reloj
-                if (name != null && name.length() > 14) name = name.substring(0, 13).trim() + "…";
+                if (name != null && name.length() > 10) name = name.substring(0, 9).trim() + "…";
             }
         } catch (Exception ignored) { }
         int speed = -1;
