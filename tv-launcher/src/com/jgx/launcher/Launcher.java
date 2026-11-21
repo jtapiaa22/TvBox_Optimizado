@@ -1457,11 +1457,14 @@ public class Launcher extends Activity {
     };
 
     /**
-     * Free RAM in kB, from /proc/meminfo: MemFree + Inactive(file).
-     * Some cheap TV boxes patch MemTotal, Cached and ActivityManager's numbers upwards (the MXQ Pro 5G reports
-     * 4 GB with 1 GB of real RAM), so those fields and the total are deliberately not used.
+     * Free RAM in kB: free pages + inactive file cache, read from /proc/zoneinfo.
+     * Some cheap TV boxes patch /proc/meminfo, Cached and ActivityManager's numbers upwards (the MXQ Pro 5G reports
+     * 4 GB with 1 GB of real RAM; the MBOX reports 8 GB and 5.5 GB "free"), but leave /proc/zoneinfo alone, so it is
+     * tried first. /proc/meminfo is only the fallback when zoneinfo cannot be read.
      */
     private long freeRamKb() {
+        long z = freeRamKbZoneinfo();
+        if (z > 0) return z;
         long free = -1, active = 0, inactive = 0, avail = -1;
         try {
             java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader("/proc/meminfo"));
@@ -1480,6 +1483,23 @@ public class Launcher extends Activity {
         // MemAvailable (kernel 3.14+) when the kernel offers it; otherwise a conservative estimate: free memory
         // plus the inactive file cache (Active(file) also looked inflated on the MXQ Pro 5G, so it is left out)
         return avail >= 0 ? avail : free + inactive;
+    }
+
+    /** Sum over every zone of "pages free" + "nr_inactive_file", in kB (4 KB pages); -1 if unreadable. */
+    private long freeRamKbZoneinfo() {
+        long pages = 0;
+        boolean seen = false;
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader("/proc/zoneinfo"));
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.trim().split("\\s+");
+                if (p.length == 3 && p[0].equals("pages") && p[1].equals("free")) { pages += Long.parseLong(p[2]); seen = true; }
+                else if (p.length == 2 && p[0].equals("nr_inactive_file")) pages += Long.parseLong(p[1]);
+            }
+            br.close();
+        } catch (Exception e) { return -1; }
+        return seen ? pages * 4 : -1;
     }
 
     /** Ends cached/background processes of every other app (foreground apps are untouched). */

@@ -149,7 +149,7 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 (`MainSettings` responde a `android.settings.SETTINGS`). Funciona también para Wi-Fi y detalles de app.
 
 ## Barra superior
-- RAM: `MemFree + Inactive(file)` de `/proc/meminfo` (o `MemAvailable` si el kernel lo ofrece), sin mostrar total. Hay cajas baratas que falsean `MemTotal`, `Cached` y `ActivityManager` (la MXQ Pro 5G dice 4 GB y tiene 1 GB), asi que esos valores no se usan. Se refresca cada 5 s solo mientras el launcher está
+- RAM: `pages free + nr_inactive_file` de **`/proc/zoneinfo`** (todas las zonas, páginas de 4 KB), sin mostrar total. Hay cajas baratas que falsean `/proc/meminfo`, `Cached` y `ActivityManager` (la MXQ Pro 5G dice 4 GB y tiene 1 GB; la MBOX dice 8 GB y mostraba 5.5 GB "libres") pero dejan `/proc/zoneinfo` intacto: en la MBOX pasó de 5.5 GB a 304 MB, igual a la cuenta a mano. Si `zoneinfo` no se puede leer, vuelve a `MemFree + Inactive(file)` (o `MemAvailable`) de `/proc/meminfo`. Se refresca cada 5 s solo mientras el launcher está
   en primer plano. Sin red.
 - Red: SSID y `getLinkSpeed()` de `WifiManager` (permiso `ACCESS_WIFI_STATE`). Si `getActiveNetworkInfo()` es
   Ethernet (permiso `ACCESS_NETWORK_STATE`) muestra "Cable" y, si existe `/sys/class/net/eth0/speed`, la velocidad.

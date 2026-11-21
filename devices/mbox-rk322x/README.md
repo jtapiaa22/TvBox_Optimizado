@@ -31,7 +31,8 @@ herramientas de prueba de red de AOSP (solo usan `getaddrinfo`/`connect`; nada l
 
 ## Resultados
 - `Used RAM` (`dumpsys meminfo`): ~540 MB antes → ~450 MB después (con Play encendido).
-- El contador "RAM libre" del launcher muestra ~5.6 GB: este firmware falsea `/proc/meminfo` (mismo problema que la MXQ Pro 5G).
+- El contador "RAM libre" del launcher mostraba ~5.6 GB porque este firmware falsea `/proc/meminfo` (dice 8 GB). `/proc/zoneinfo` no está
+  falseado (1023 MB reales): el launcher ahora lee de ahí y muestra ~300 MB libres, que es lo real.
 
 ## Pendiente
 - **Cerrar ADB** (Ajustes → Opciones de desarrollador → Depuración USB): con `ro.adb.secure=0` cualquiera en la red tiene shell.
