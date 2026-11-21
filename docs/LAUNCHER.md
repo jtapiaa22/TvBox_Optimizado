@@ -20,6 +20,23 @@ build-tools 35 y 36, plataformas android-35 y android-37.0 y un JDK 25. Los avis
 PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"` y se revisa `$LASTEXITCODE`.
 `install.ps1 [ip]` compila, instala, fija Home y desactiva el launcher original.
 
+## Dos variantes: clásica (Android 7-8) y moderna (Android 9+)
+Mismo código Java, dos manifiestos. **La clásica no cambia**: `AndroidManifest.xml`, target 25, la que anda en las cajas viejas.
+La **moderna** (`AndroidManifest-moderno.xml`, target 34) existe porque en Android 9+ un target viejo hace aparecer, al abrir el launcher,
+el cartel *"Esta app se compiló para una versión anterior de Android"* (visto en un Onn Google TV con Android 14). Ese target obliga a:
+- **ver las demás apps**: `<queries>` para `LAUNCHER`/`LEANBACK_LAUNCHER` y `QUERY_ALL_PACKAGES` (Android 11+; sin eso el dock sale vacío);
+- **receptor de paquetes con bandera**: en Android 13+ `registerReceiver(..., RECEIVER_EXPORTED)` (el código lo elige por `SDK_INT`);
+- **ubicación para el nombre del Wi-Fi** (Android 8.1+): `install.ps1` concede `ACCESS_FINE_LOCATION` por ADB, sin cartel. Si la
+  ubicación del aparato está apagada, igual no hay nombre: la barra muestra `Wi-Fi · <velocidad>` (en las dos variantes).
+
+`.\build.ps1` → `build\launcher.apk` (clásica); `.\build.ps1 -Moderno` → `build-moderno\launcher.apk`. `install.ps1 <ip>` mira
+`ro.build.version.sdk` de la caja y elige sola (SDK 28 o más = moderna); se fuerza con `-Clasico` o `-Moderno`. Las dos se firman con la
+misma clave y el mismo paquete, así que una reemplaza a la otra con `install -r`.
+
+**Projectivy y otros launchers con accesibilidad** se quedan con el botón Home aunque el nuestro sea el Home preferido: hay que sacar
+su servicio de `settings get secure enabled_accessibility_services` (dejando los demás, por ejemplo Button Mapper). Probado en el Onn:
+tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
+
 ## Pantalla
 - Fondo negro con un brillo ambiental continuo (capa fija detrás del scroll) que se anima, en posición y color,
   hacia el tile enfocado. Arriba a la izquierda: saludo, hora grande (98.8), fecha. Arriba a la derecha: botones

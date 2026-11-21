@@ -182,7 +182,9 @@ public class Launcher extends Activity {
         f.addAction(Intent.ACTION_PACKAGE_ADDED);
         f.addAction(Intent.ACTION_PACKAGE_REMOVED);
         f.addDataScheme("package");
-        registerReceiver(pkgReceiver, f);
+        // variante moderna (target 34): desde Android 13 hay que decir si el receptor es exportado; los avisos de paquetes los manda el sistema
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(pkgReceiver, f, Context.RECEIVER_EXPORTED);
+        else registerReceiver(pkgReceiver, f);
         importIfRequested();
     }
 
@@ -586,7 +588,7 @@ public class Launcher extends Activity {
             t = "Cable" + (eth > 0 ? "  ·  " + eth + " Mbps" : "");
         } else {
             t = name != null ? "Wi-Fi  ·  " + name : "Wi-Fi";
-            if (name != null && speed > 0) t += "  ·  " + speed + " Mbps";
+            if (speed > 0) t += "  ·  " + speed + " Mbps"; // sin permiso de ubicacion (Android 8.1+) no hay nombre, pero si velocidad
         }
         netCable = cable;
         wifiPill.setText(t);

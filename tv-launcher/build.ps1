@@ -1,7 +1,12 @@
 # Compila el launcher y genera build\launcher.apk (sin Gradle: aapt2 + javac + d8 + apksigner).
 # Detecta solo el Android SDK, las build-tools y la plataforma MAS NUEVAS instaladas, y un JDK. No hace falta Python.
+#   .\build.ps1            -> build\launcher.apk           version clasica (target 25) para las cajas con Android 7
+#   .\build.ps1 -Moderno   -> build-moderno\launcher.apk   mismo codigo con AndroidManifest-moderno.xml (target 34) para Android 9+
+param([switch]$Moderno)
 $ErrorActionPreference = "Continue"  # las herramientas escriben avisos por stderr; los codigos de salida se revisan abajo
 $root = $PSScriptRoot
+$manifest = if ($Moderno) { "$root\AndroidManifest-moderno.xml" } else { "$root\AndroidManifest.xml" }
+$target = if ($Moderno) { 34 } else { 25 }
 
 # --- Android SDK (ANDROID_HOME, ANDROID_SDK_ROOT o la ruta por defecto de Android Studio) ---
 $sdk = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT, "$env:LOCALAPPDATA\Android\Sdk") |
@@ -35,11 +40,11 @@ $env:JAVA_HOME = Split-Path $jdk -Parent    # d8.bat y apksigner.bat lo necesita
 Write-Host "SDK: $sdk"
 Write-Host "build-tools: $(Split-Path $bt -Leaf) · plataforma: $(Split-Path (Split-Path $jar -Parent) -Leaf) · JDK: $env:JAVA_HOME"
 
-$out = "$root\build"
+$out = if ($Moderno) { "$root\build-moderno" } else { "$root\build" }
 Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory "$out\classes" | Out-Null
 
-& "$bt\aapt2.exe" link --manifest "$root\AndroidManifest.xml" -I $jar --min-sdk-version 25 --target-sdk-version 25 -o "$out\base.apk"
+& "$bt\aapt2.exe" link --manifest $manifest -I $jar --min-sdk-version 25 --target-sdk-version $target -o "$out\base.apk"
 if ($LASTEXITCODE) { throw "aapt2 failed" }
 & "$jdk\javac.exe" --release 8 -encoding UTF-8 -Xlint:-options -cp $jar -d "$out\classes" (Get-ChildItem "$root\src" -Recurse -Filter *.java).FullName
 if ($LASTEXITCODE) { throw "javac failed" }

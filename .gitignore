@@ -18,3 +18,6 @@ apps/tizentube-2.0.2/respaldo-youtube/
 
 # Limpieza de apps desactivadas: respaldo de las carpetas de /system (lo hace el script, no se sube)
 tools/limpiar-apps-desactivadas/respaldo-system/
+
+# Variante moderna del launcher (build.ps1 -Moderno)
+tv-launcher/build-moderno/

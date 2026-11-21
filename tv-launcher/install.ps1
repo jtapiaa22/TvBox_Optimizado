@@ -23,7 +23,9 @@ param(
     [switch]$DesactivarOriginal,
     [switch]$SoloDetectar,
     [string]$Ajustes = "",
-    [string[]]$Fondo = @()
+    [string[]]$Fondo = @(),
+    [switch]$Moderno,     # fuerza la variante para Android 9+ (target 34); sin -Moderno ni -Clasico se elige sola por el SDK de la caja
+    [switch]$Clasico      # fuerza la variante de siempre (target 25), la de las cajas con Android 7
 )
 $nuestro = 'com.jgx.launcher'
 # Paquetes que responden a HOME pero NO son un launcher que reemplazar (respaldo del sistema mientras no hay Home)
@@ -60,12 +62,21 @@ if (((& $adb devices) -join "`n") -notmatch [regex]::Escape("$s`tdevice")) { thr
 
 if ($SoloDetectar) { [void](Mostrar-Candidatos); return }
 
-& "$PSScriptRoot\build.ps1"
-if (-not (Test-Path "$PSScriptRoot\build\launcher.apk")) { throw "La compilacion no genero launcher.apk: no instalo nada." }
-$res = (& $adb -s $s install -r "$PSScriptRoot\build\launcher.apk") -join ' '
+# Variante: la clasica (target 25) para Android 7-8; la moderna (target 34, AndroidManifest-moderno.xml) para Android 9+, donde la
+# clasica muestra el cartel "se compilo para una version anterior de Android". Mismo codigo Java en las dos.
+$sdkCaja = 0; [void][int]::TryParse(((& $adb -s $s shell getprop ro.build.version.sdk) -join '').Trim(), [ref]$sdkCaja)
+$usarModerno = if ($Clasico) { $false } elseif ($Moderno) { $true } else { $sdkCaja -ge 28 }
+$dirBuild = if ($usarModerno) { "build-moderno" } else { "build" }
+Write-Host ("Caja con SDK {0}: variante {1}" -f $sdkCaja, $(if ($usarModerno) { "MODERNA (target 34)" } else { "clasica (target 25)" })) -ForegroundColor Cyan
+& "$PSScriptRoot\build.ps1" -Moderno:$usarModerno
+if (-not (Test-Path "$PSScriptRoot\$dirBuild\launcher.apk")) { throw "La compilacion no genero launcher.apk: no instalo nada." }
+$res = (& $adb -s $s install -r "$PSScriptRoot\$dirBuild\launcher.apk") -join ' '
 Write-Host $res
 if ($res -notmatch 'Success') { throw "No se pudo instalar el launcher ($res). Si dice INSTALL_FAILED_UPDATE_INCOMPATIBLE, la caja tiene otro build firmado con otra clave: desinstala com.jgx.launcher primero." }
 & $adb -s $s shell cmd package set-home-activity "$nuestro/.Launcher"
+if ($usarModerno) {   # desde Android 8.1 el nombre del Wi-Fi solo se lee con permiso de ubicacion; se concede por ADB (sin cartel en la tele)
+    & $adb -s $s shell pm grant $nuestro android.permission.ACCESS_FINE_LOCATION
+}
 
 $cand = Mostrar-Candidatos
 $objetivo = $LauncherOriginal
