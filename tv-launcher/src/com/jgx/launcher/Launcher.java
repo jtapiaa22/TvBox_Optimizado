@@ -482,6 +482,13 @@ public class Launcher extends Activity {
 
     private void startMove(Entry e) {
         movingPkg = e.pkg;
+        stopBreath();   // mientras se mueve no respira (el vidrio ya va y viene con el resorte)
+        View f = scroll.findFocus();
+        if (f instanceof LinearLayout && ((LinearLayout) f).getChildCount() > 0) {
+            View img = ((LinearLayout) f).getChildAt(0);
+            img.setScaleX(zoom);
+            img.setScaleY(zoom);
+        }
         dockName.setText("↔ " + e.label);
         Toast.makeText(this, "Mové con ◀ ▶  ·  OK confirma  ·  Atrás cancela", Toast.LENGTH_LONG).show();
     }
@@ -538,7 +545,13 @@ public class Launcher extends Activity {
         List<String> pkgs = new ArrayList<>();
         for (View c : dockCells) pkgs.add(String.valueOf(c.getTag()));
         movingPkg = null;
-        saveDock(pkgs);
+        // solo se guarda: las tarjetas ya estan en su lugar (moveStep las fue acomodando). Antes se llamaba a saveDock(),
+        // que hace recreate(), y la pantalla parpadeaba en negro en cada confirmacion.
+        storeDock(pkgs);
+        CharSequence name = dockName.getText();
+        if (name != null && name.toString().startsWith("↔ ")) dockName.setText(name.toString().substring(2));
+        View f = scroll.findFocus();
+        if (f instanceof LinearLayout && ((LinearLayout) f).getChildCount() > 0) startBreath(((LinearLayout) f).getChildAt(0));
     }
 
     /** After coming back from another app, snap the highlight (and glow) onto the focused tile without animating. */
