@@ -74,20 +74,20 @@ public class Launcher extends Activity {
     private static final int TILE_W = 240, TILE_H = 135, GAP = 28, HL_PAD = 20;   // tamano "Normal" de la tarjeta
     private static final int MARGIN = 60, BAND_PAD = 30, BAND_BOTTOM = 56;
     // Opciones de "Personalizar launcher > Tarjetas": cada una guarda el indice elegido en las preferencias
-    private static final String[] CARD_SIZE_NAMES = {"Pequeño", "Normal", "Grande"};
+    static final String[] CARD_SIZE_NAMES = {"Pequeño", "Normal", "Grande"};
     private static final float[] CARD_SIZE_SCALE = {0.85f, 1f, 1.15f};
-    private static final String[] CARD_CORNER_NAMES = {"Rectas", "Suaves", "Muy redondeadas"};
+    static final String[] CARD_CORNER_NAMES = {"Rectas", "Suaves", "Muy redondeadas"};
     private static final int[] CARD_CORNER_DP = {4, 16, 28};
-    private static final String[] CARD_ZOOM_NAMES = {"Sin zoom", "Suave", "Normal", "Grande"};
+    static final String[] CARD_ZOOM_NAMES = {"Sin zoom", "Suave", "Normal", "Grande"};
     private static final float[] CARD_ZOOM_SCALE = {1f, 1.05f, 1.1f, 1.2f};
     // Imagen de fondo propia: oscurecido sobre la imagen (indice guardado en bg_dim)
-    private static final String[] BG_DIM_NAMES = {"Sin oscurecer", "Suave", "Medio", "Fuerte"};
+    static final String[] BG_DIM_NAMES = {"Sin oscurecer", "Suave", "Medio", "Fuerte"};
     private static final float[] BG_DIM_ALPHA = {0f, 0.35f, 0.55f, 0.75f};
     // Orden del dock: Manual respeta el orden que la persona armo (modo Mover); los demas lo ordenan solos
-    private static final String[] ORDER_NAMES = {"Manual", "Alfabético", "Más usadas", "Últimas usadas"};
+    static final String[] ORDER_NAMES = {"Manual", "Alfabético", "Más usadas", "Últimas usadas"};
 
     // Temas: arriba, medio y abajo del degradado de fondo + color de acento (vidrio, botones, borde). 0 = automatico por hora.
-    private static final String[] THEME_NAMES = {"Automático (según la hora)", "Celeste y blanco", "Noche", "Atardecer", "Amanecer", "Monocromo", "AMOLED"};
+    static final String[] THEME_NAMES = {"Automático por hora", "Celeste y blanco", "Noche", "Atardecer", "Amanecer", "Monocromo", "AMOLED"};
     private static final int[][] THEMES = {
         {0, 0, 0, 0},   // automatico: se resuelve a uno de los de abajo
         {0xFF16406B, 0xFF0A1F36, 0xFF030810, 0xFF75AADB},   // celeste y blanco
@@ -98,7 +98,7 @@ public class Launcher extends Activity {
         {0xFF000000, 0xFF000000, 0xFF000000, 0xFFFFFFFF},   // amoled
     };
 
-    private static final String[] CLOCK_STYLE_NAMES = {"Cuadro", "Clásico"};
+    static final String[] CLOCK_STYLE_NAMES = {"Cuadro", "Clásico"};
 
     private static class Entry {
         String pkg, label;
@@ -180,8 +180,26 @@ public class Launcher extends Activity {
         // variante moderna (target 34): desde Android 13 hay que decir si el receptor es exportado; los avisos de paquetes los manda el sistema
         if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(pkgReceiver, f, Context.RECEIVER_EXPORTED);
         else registerReceiver(pkgReceiver, f);
+        prefs.registerOnSharedPreferenceChangeListener(panelListener);
         importIfRequested();
     }
+
+    // ---- panel "Personalizar launcher" (SettingsPanel): mientras esta abierto, cada cambio rearma el launcher que se ve detras
+
+    private final android.os.Handler ui = new android.os.Handler();
+    private final Runnable panelRefresh = new Runnable() {
+        @Override public void run() { refresh(); }
+    };
+    private static final java.util.List<String> PANEL_KEYS = java.util.Arrays.asList(
+            "dock_order", "card_size", "card_corners", "card_zoom", "theme", "clock_style", "breath", "glow", "bg_file", "bg_dim");
+    private final SharedPreferences.OnSharedPreferenceChangeListener panelListener =
+            new SharedPreferences.OnSharedPreferenceChangeListener() {
+                @Override public void onSharedPreferenceChanged(SharedPreferences sp, String key) {
+                    if (!SettingsPanel.open || !PANEL_KEYS.contains(key)) return;
+                    ui.removeCallbacks(panelRefresh);
+                    ui.postDelayed(panelRefresh, 80); // si se apreta ◀ ▶ seguido, se rearma una sola vez
+                }
+            };
 
     /** Lee las preferencias de tarjetas, tema, orden, etc. (en onCreate y en cada refresh()). */
     private void readPrefs() {
@@ -240,15 +258,19 @@ public class Launcher extends Activity {
 
     private static boolean isVideo(java.io.File f) { return hasExt(f.getName(), BG_VIDEO_EXT); }
 
-    private java.io.File backgroundsDir() {
-        java.io.File base = getExternalFilesDir(null);
+    private java.io.File backgroundsDir() { return backgroundsDir(this); }
+
+    static java.io.File backgroundsDir(Context c) {
+        java.io.File base = c.getExternalFilesDir(null);
         return base == null ? null : new java.io.File(base, "backgrounds");
     }
 
-    /** Imagenes y videos disponibles, por nombre. */
-    private List<java.io.File> listBackgrounds() {
+    private List<java.io.File> listBackgrounds() { return listBackgrounds(this); }
+
+    /** Imagenes y videos disponibles, por nombre (tambien lo usa el panel de Personalizar). */
+    static List<java.io.File> listBackgrounds(Context c) {
         List<java.io.File> out = new ArrayList<>();
-        java.io.File dir = backgroundsDir();
+        java.io.File dir = backgroundsDir(c);
         java.io.File[] all = dir == null ? null : dir.listFiles();
         if (all != null) for (java.io.File f : all) {
             if (f.isFile() && f.length() > 0 && (hasExt(f.getName(), BG_IMAGE_EXT) || isVideo(f))) out.add(f);
@@ -406,12 +428,22 @@ public class Launcher extends Activity {
         super.onDestroy();
         releasePlayer();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
+        prefs.unregisterOnSharedPreferenceChangeListener(panelListener);
+        ui.removeCallbacks(panelRefresh);
     }
 
     @Override
     protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
         setIntent(i);
+        String act = i.getStringExtra("panel_action"); // acciones del panel de Personalizar que abren otra lista
+        if (act != null) {
+            i.removeExtra("panel_action");
+            if (act.equals("hidden")) showHiddenApps();
+            else if (act.equals("export")) exportSettings();
+            else if (act.equals("import")) importSettings();
+            return;
+        }
         importIfRequested();
         if (movingPkg != null) { movingPkg = null; refresh(); return; } // Inicio cancela el modo Mover
         // Home pressed while already on the launcher: back to the first dock app
@@ -439,16 +471,19 @@ public class Launcher extends Activity {
         int k = ev.getKeyCode();
         if (movingPkg != null && handleMoveKey(ev)) return true;
         if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
+            View fv = scroll != null ? scroll.findFocus() : null;
+            View cardImg = fv != null && dockCells.contains(fv) && fv instanceof LinearLayout && ((LinearLayout) fv).getChildCount() > 0
+                    ? ((LinearLayout) fv).getChildAt(0) : null;
+            // apenas se APRIETA OK sobre una app: la tarjeta se hunde en el acto y queda hundida mientras se mantenga
+            if (ev.getAction() == KeyEvent.ACTION_DOWN && ev.getRepeatCount() == 0 && cardImg != null) pressDown(cardImg, null);
             if (ev.getAction() == KeyEvent.ACTION_DOWN && ev.getRepeatCount() > 0) {
+                // el menu sale con la primera repeticion de la tecla (~0.5 s manteniendo); la tarjeta ya viene hundida
                 if (!longHandled) {
-                    View f = scroll.findFocus();
-                    Runnable r = f == null ? null : longActions.get(f);
+                    Runnable r = fv == null ? null : longActions.get(fv);
                     if (r != null) {
                         longHandled = true;
-                        f.setPressed(false);
-                        // mantener OK sobre una app del dock: la tarjeta se hunde igual que al abrirla y ahi sale el menu
-                        if (dockCells.contains(f) && f instanceof LinearLayout && ((LinearLayout) f).getChildCount() > 0)
-                            press(((LinearLayout) f).getChildAt(0), r);
+                        fv.setPressed(false);
+                        if (cardImg != null) press(cardImg, r); // la tarjeta ya esta hundida: se suelta y sale el menu
                         else r.run();
                     }
                 }
@@ -507,6 +542,7 @@ public class Launcher extends Activity {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
             longHandled = false; // el "soltar OK" de un mantener-OK se lo queda el dialogo y no llega aca
+            if (pressedImg != null) pressRelease(pressedImg, null); // un OK que se apreto pero cuyo "soltar" se perdio
             syncHighlight();
             if (breathAnim == null && movingPkg == null && scroll != null) { // al volver de una app abierta con OK
                 View f = scroll.findFocus();
@@ -1380,7 +1416,7 @@ public class Launcher extends Activity {
     // ---- "Personalizar launcher": menu de opciones, exportar e importar ajustes
 
     /** Preferencias que viajan en el archivo de ajustes. No incluye `known` ni `last`: dependen de cada caja. */
-    private static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style", "open_anim", "breath"};
+    static final String[] SETTING_KEYS = {"dock", "hidden", "card_size", "card_corners", "card_zoom", "glow", "dock_order", "bg_file", "bg_dim", "theme", "clock_style", "open_anim", "breath"};
 
     /** Boton "Ajustes" de arriba: elegir entre los ajustes de Android y los del launcher. */
     private void showSettingsChoice() {
@@ -1395,7 +1431,15 @@ public class Launcher extends Activity {
                         }).show();
     }
 
+    /** "Personalizar launcher": abre el panel lateral grande (SettingsPanel), que no se cierra en cada cambio. */
     private void showLauncherMenu() {
+        startActivity(new Intent(this, SettingsPanel.class));
+        overridePendingTransition(0, 0); // el panel entra deslizandose solo
+    }
+
+    /** Menu viejo (dialogo chico que se cerraba en cada cambio). Queda por si el panel no abre en algun firmware. */
+    @SuppressWarnings("unused")
+    private void showLauncherMenuDialog() {
         final List<String> items = new ArrayList<>();
         if (!prefs.getStringSet("hidden", new HashSet<String>()).isEmpty()) items.add("Apps ocultas…");
         items.add("Orden del dock: " + ORDER_NAMES[order]);
@@ -1779,6 +1823,7 @@ public class Launcher extends Activity {
         c.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             @Override public void onFocusChange(View v, boolean has) {
                 if (!has && breathImg == img) stopBreath();   // antes de animar: si no, la respiracion pisaria la vuelta a 1x
+                if (!has && pressedImg == img) { pressedImg = null; hl.setScaleX(1f); hl.setScaleY(1f); }
                 float s = has ? zoom : 1f;
                 img.animate().scaleX(s).scaleY(s).setDuration(has ? 220 : 160)
                         .setInterpolator(new DecelerateInterpolator()).start();
@@ -1844,31 +1889,48 @@ public class Launcher extends Activity {
         breathAnim.start();
     }
 
+    /** Tarjeta que esta hundida ahora mismo (OK apretado y todavia no soltado). */
+    private View pressedImg;
+
     /**
-     * Respuesta inmediata al OK: la tarjeta (y el vidrio) se hunden un 8 % en 70 ms y ahi recien se abre la app; despues
-     * vuelven. Sin esto, una app que arranca en frio (~0.8 s en el Onn) daba la sensacion de que el OK no se habia tomado.
+     * Respuesta inmediata al OK, como un boton fisico: al APRETAR la tarjeta (y el vidrio) se hunden en el acto y se quedan
+     * hundidas mientras se mantiene; al SOLTAR se abre la app (o, si se mantuvo, sale el menu) y vuelven con un rebote.
+     * Sin esto, una app que arranca en frio (~0.8 s en el Onn) daba la sensacion de que el OK no se habia tomado.
      */
-    private void press(final View img, final Runnable then) {
+    private void pressDown(View img, Runnable whenDown) {
         stopBreath();
         img.animate().cancel();
+        pressedImg = img;
         hl.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70).start();
-        img.animate().scaleX(zoom * 0.92f).scaleY(zoom * 0.92f).setDuration(70)
-                .setInterpolator(new DecelerateInterpolator())
+        android.view.ViewPropertyAnimator a = img.animate().scaleX(zoom * 0.92f).scaleY(zoom * 0.92f).setDuration(70)
+                .setInterpolator(new DecelerateInterpolator());
+        if (whenDown != null) a.withEndAction(whenDown);
+        a.start();
+    }
+
+    /** Suelta la tarjeta hundida: `then` (abrir la app / el menu) va primero, sin esperar a la animacion. */
+    private void pressRelease(final View img, Runnable then) {
+        pressedImg = null;
+        if (then != null) then.run();
+        hl.animate().scaleX(1f).scaleY(1f).setDuration(180).start();
+        img.animate().cancel();
+        img.animate().scaleX(zoom).scaleY(zoom).setDuration(180)
+                .setInterpolator(new OvershootInterpolator(2f))
                 .withEndAction(new Runnable() {
                     @Override public void run() {
-                        then.run();
-                        hl.animate().scaleX(1f).scaleY(1f).setDuration(180).start();
-                        img.animate().scaleX(zoom).scaleY(zoom).setDuration(180)
-                                .setInterpolator(new OvershootInterpolator(2f))
-                                .withEndAction(new Runnable() {
-                                    @Override public void run() {
-                                        View cell = (View) img.getParent();
-                                        // con la app ya al frente no se arranca (gastaria CPU de fondo): vuelve en onWindowFocusChanged
-                                        if (cell != null && cell.hasFocus() && hasWindowFocus()) startBreath(img);
-                                    }
-                                }).start();
+                        View cell = (View) img.getParent();
+                        // con la app ya al frente no se arranca (gastaria CPU de fondo): vuelve en onWindowFocusChanged
+                        if (cell != null && cell.hasFocus() && hasWindowFocus()) startBreath(img);
                     }
                 }).start();
+    }
+
+    /** Clic (del control, o tactil/mouse): si la tarjeta ya esta hundida por el OK, solo se suelta; si no, se hunde y se suelta. */
+    private void press(final View img, final Runnable then) {
+        if (pressedImg == img) { pressRelease(img, then); return; }
+        pressDown(img, new Runnable() {
+            @Override public void run() { pressRelease(img, then); }
+        });
     }
 
     private void stopBreath() {

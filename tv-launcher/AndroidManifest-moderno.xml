@@ -39,5 +39,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Personalizar launcher: panel lateral translucido (sin screenOrientation: Android 8.0 rechaza orientacion en translucidas) -->
+        <activity
+            android:name=".SettingsPanel"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen"
+            android:excludeFromRecents="true"
+            android:exported="false" />
     </application>
 </manifest>

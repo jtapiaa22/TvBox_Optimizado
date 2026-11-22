@@ -111,6 +111,12 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
   lista guardada, ocupando una posición invisible (el primer tile ofrecía "Mover a la izquierda" sin tener nada a la izquierda).
 
 ## Personalizar launcher y ajustes exportables
+- **Panel lateral** (`SettingsPanel.java`, actividad translúcida): ocupa la derecha de la pantalla (540 dp, opaco) y deja ver el
+  launcher a la izquierda. Cada fila se cambia con ◀ ▶ (u OK) **sin cerrar el panel**; el launcher escucha las preferencias mientras
+  `SettingsPanel.open` es true y se rearma en vivo con `refresh()` (80 ms de espera para juntar varios cambios seguidos). Atrás lo cierra.
+  Apps ocultas / Exportar / Importar cierran el panel y las hace el launcher (`panel_action` en `onNewIntent`). Reemplaza al diálogo
+  chico que se cerraba en cada cambio (queda como `showLauncherMenuDialog`, sin uso). Probado en la Motorola: brillo de fondo No/Sí con
+  el panel abierto, el launcher cambió detrás en el acto.
 - Tres formas de entrar: (1) **clic** en el botón "Ajustes" de arriba, que ofrece "Configuración de Android" o
   "Configuración del launcher" (`showSettingsChoice`); (2) **mantener OK** sobre ese mismo botón, que abre el menú del
   launcher directo; (3) mantener OK sobre cualquier app > "Personalizar launcher…". Es un menú (`showLauncherMenu`)
