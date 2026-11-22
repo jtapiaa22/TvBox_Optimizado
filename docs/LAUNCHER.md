@@ -150,6 +150,7 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
     Constantes `BREATH_AMP` y `BREATH_MS`. Medido en el Onn: el borde del vidrio se mueve ~5 px por lado.
   - Al tocar OK la tarjeta y el vidrio se hunden (8 % y 5 %, 70 ms) y recién ahí se abre la app; vuelven con un rebote. Así se nota
     que tomó el OK aunque la app tarde en arrancar en frío (~0.8 s). Al volver al inicio la respiración arranca de nuevo.
+    Lo mismo al **mantener OK** sobre una app del dock: la tarjeta se hunde y ahí sale el menú (Mover, Ocultar, ...).
   - Un valor guardado fuera de rango (archivo editado a mano) cae al valor por defecto (`pref()`).
 - **Exportar ajustes** escribe `launcher-settings.json` en la carpeta externa propia de la app
   (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan

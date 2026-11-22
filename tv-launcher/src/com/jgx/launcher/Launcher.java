@@ -446,7 +446,10 @@ public class Launcher extends Activity {
                     if (r != null) {
                         longHandled = true;
                         f.setPressed(false);
-                        r.run();
+                        // mantener OK sobre una app del dock: la tarjeta se hunde igual que al abrirla y ahi sale el menu
+                        if (dockCells.contains(f) && f instanceof LinearLayout && ((LinearLayout) f).getChildCount() > 0)
+                            press(((LinearLayout) f).getChildAt(0), r);
+                        else r.run();
                     }
                 }
                 return true;
