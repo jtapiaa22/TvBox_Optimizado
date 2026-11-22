@@ -20,6 +20,14 @@ build-tools 35 y 36, plataformas android-35 y android-37.0 y un JDK 25. Los avis
 PowerShell los muestra como error: por eso `$ErrorActionPreference = "Continue"` y se revisa `$LASTEXITCODE`.
 `install.ps1 [ip]` compila, instala, fija Home y desactiva el launcher original.
 
+## Rearmar la pantalla sin parpadeo
+Cada cambio (ocultar o mostrar una app, confirmar o cancelar *Mover*, cada opción de *Personalizar launcher*, fondo, importar ajustes,
+app instalada o desinstalada, tema por hora, orden por uso) llama a `refresh()`: suelta video, animaciones y contador, vacía las listas de
+tarjetas, relee las preferencias y vuelve a llamar a `build()` (`setContentView`) **en la misma actividad**. Antes era `recreate()`, que
+destruye y crea la actividad: la ventana quedaba en negro un instante en cada confirmación. Probado en la Motorola: ocultar, mostrar,
+mover y apagar/prender el brillo, sin cuadro negro. Confirmar *Mover* ni siquiera rearma: solo guarda el orden (las tarjetas ya están
+en su lugar).
+
 ## Dos variantes: clásica (Android 7-8) y moderna (Android 9+)
 Mismo código Java, dos manifiestos. **La clásica no cambia**: `AndroidManifest.xml`, target 25, la que anda en las cajas viejas.
 La **moderna** (`AndroidManifest-moderno.xml`, target 34) existe porque en Android 9+ un target viejo hace aparecer, al abrir el launcher,
@@ -146,7 +154,7 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
   (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan
   las preferencias de `SETTING_KEYS` (dock y ocultas); `known` y `last` dependen de cada caja y no se exportan.
 - **Importar ajustes** lee ese archivo, borra `known` (las apps de esta caja que el archivo no menciona se reubican
-  solas al final del dock) y recrea la pantalla. Una clave de `SETTING_KEYS` que el archivo no trae **vuelve a su valor
+  solas al final del dock) y rearma la pantalla. Una clave de `SETTING_KEYS` que el archivo no trae **vuelve a su valor
   por defecto** (así un archivo viejo, anterior a una opción nueva, no deja a medias los ajustes actuales de la caja). Los paquetes del archivo que la caja no tenga se descartan solos.
 - Para otra caja: `install.ps1 <ip> -Ajustes archivo.json` copia el archivo y lo importa con
   `am start -n com.jgx.launcher/.Launcher --ez import_settings true` (el launcher consume el extra una sola vez).
@@ -161,7 +169,7 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
   dock, ni en `hidden`, ni en `HIDDEN`, entra solo **al principio** del dock (ordenados por nombre si llegan varios).
 - La primera vez que corre esta versión sobre un dock ya armado (`known` no existe), las apps que faltaban se agregan
   al **final** para no desordenar lo que la persona ya tenía.
-- Un `BroadcastReceiver` de `PACKAGE_ADDED/REMOVED` recrea la pantalla; al desinstalar, `known` se poda solo en el
+- Un `BroadcastReceiver` de `PACKAGE_ADDED/REMOVED` rearma la pantalla; al desinstalar, `known` se poda solo en el
   siguiente `build()`. Probado instalando un APK de prueba sin código: apareció al frente y, al desinstalarlo, se fue.
 
 ## Ajustes de Android TV, no de teléfono

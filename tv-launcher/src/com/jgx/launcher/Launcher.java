@@ -165,6 +165,26 @@ public class Launcher extends Activity {
         DisplayMetrics real = new DisplayMetrics(); // tamano fisico: widthPixels/heightPixels descuentan barras del sistema
         getWindowManager().getDefaultDisplay().getRealMetrics(real);
         d = Math.min(Math.max(real.widthPixels, real.heightPixels) / 1280f, Math.min(real.widthPixels, real.heightPixels) / 720f);
+        readPrefs();
+        build();
+
+        pkgReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context c, Intent i) {
+                refresh(); // build() puts a freshly installed app at the front of the dock
+            }
+        };
+        IntentFilter f = new IntentFilter();
+        f.addAction(Intent.ACTION_PACKAGE_ADDED);
+        f.addAction(Intent.ACTION_PACKAGE_REMOVED);
+        f.addDataScheme("package");
+        // variante moderna (target 34): desde Android 13 hay que decir si el receptor es exportado; los avisos de paquetes los manda el sistema
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(pkgReceiver, f, Context.RECEIVER_EXPORTED);
+        else registerReceiver(pkgReceiver, f);
+        importIfRequested();
+    }
+
+    /** Lee las preferencias de tarjetas, tema, orden, etc. (en onCreate y en cada refresh()). */
+    private void readPrefs() {
         float scale = CARD_SIZE_SCALE[pref("card_size", 1, CARD_SIZE_SCALE.length)];
         tileW = Math.round(TILE_W * scale);
         tileH = Math.round(TILE_H * scale);
@@ -178,21 +198,33 @@ public class Launcher extends Activity {
         themeIdx = pref("theme", 0, THEMES.length);
         themeBuilt = resolveTheme();
         theme = THEMES[themeBuilt];
-        build();
+    }
 
-        pkgReceiver = new BroadcastReceiver() {
-            @Override public void onReceive(Context c, Intent i) {
-                recreate(); // build() puts a freshly installed app at the front of the dock
-            }
-        };
-        IntentFilter f = new IntentFilter();
-        f.addAction(Intent.ACTION_PACKAGE_ADDED);
-        f.addAction(Intent.ACTION_PACKAGE_REMOVED);
-        f.addDataScheme("package");
-        // variante moderna (target 34): desde Android 13 hay que decir si el receptor es exportado; los avisos de paquetes los manda el sistema
-        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(pkgReceiver, f, Context.RECEIVER_EXPORTED);
-        else registerReceiver(pkgReceiver, f);
-        importIfRequested();
+    /**
+     * Rearma la pantalla dentro de la MISMA actividad (preferencias nuevas, app ocultada, fondo cambiado...).
+     * Antes se usaba recreate(), que destruye y vuelve a crear la actividad: la ventana quedaba en negro un instante en cada
+     * confirmacion (ocultar, mover, cada opcion de Personalizar). Aca solo se cambia el contenido con setContentView, sin
+     * cuadro negro. Hay que soltar lo que build() deja armado: video, animaciones, el contador y las listas de tarjetas.
+     */
+    private void refresh() {
+        if (isFinishing()) return;
+        stopBreath();
+        if (glowAnim != null) glowAnim.cancel();
+        if (stats != null) stats.removeCallbacks(statsTick);
+        releasePlayer();
+        videoView = null;
+        videoTex = null;
+        videoFile = null;
+        movingPkg = null;
+        hlShown = false;
+        dockCells.clear();
+        longActions.clear();
+        readPrefs();
+        build();
+        if (active) {
+            startVideo();
+            if (stats != null) stats.post(statsTick);
+        }
     }
 
     // ---- fondos propios: imagenes y videos en <carpeta de la app>/backgrounds/; "bg_file" guarda el nombre elegido
@@ -256,7 +288,7 @@ public class Launcher extends Activity {
                     @Override public void onClick(DialogInterface dlg, int which) {
                         prefs.edit().putString("bg_file", which == 0 ? "" : files.get(which - 1).getName()).apply();
                         dlg.dismiss();
-                        recreate();
+                        refresh();
                     }
                 }).show();
     }
@@ -282,6 +314,7 @@ public class Launcher extends Activity {
             }
             @Override public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture st, int w, int h) { fitVideo(); }
             @Override public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture st) {
+                if (videoTex != st) return true; // la vista vieja de un refresh(): el video nuevo no se toca
                 releasePlayer();
                 videoTex = null;
                 return true;
@@ -380,7 +413,7 @@ public class Launcher extends Activity {
         super.onNewIntent(i);
         setIntent(i);
         importIfRequested();
-        if (movingPkg != null) { movingPkg = null; recreate(); return; } // Inicio cancela el modo Mover
+        if (movingPkg != null) { movingPkg = null; refresh(); return; } // Inicio cancela el modo Mover
         // Home pressed while already on the launcher: back to the first dock app
         if (!dockCells.isEmpty()) {
             scroll.scrollTo(0, 0);
@@ -431,19 +464,16 @@ public class Launcher extends Activity {
         super.onResume();
         if (breathAnim != null) breathAnim.resume();
         if (themeIdx == 0 && resolveTheme() != themeBuilt) { // cambio la franja horaria: rearma con el tema nuevo
-            recreate();
-            return;
-        }
-        if (usedDirty) {
+            refresh();
+        } else if (usedDirty) {
             // al volver de una app, "Más usadas" / "Últimas usadas" se reordenan. Se hace en onResume y no en onRestart
             // porque el panel de Ajustes de Android TV es translucido: el launcher se pausa pero nunca se detiene.
             // onNewIntent ya dejo guardado como "ultimo" el primer tile del orden VIEJO: se descarta para que el foco
             // caiga en el primero del nuevo.
-            usedDirty = false;
             prefs.edit().remove("last").apply();
-            recreate();
-            return;
+            refresh();
         }
+        usedDirty = false;
         updateWifi();
         syncHighlight();
         active = true;
@@ -506,7 +536,7 @@ public class Launcher extends Activity {
             return true;
         }
         if (k == KeyEvent.KEYCODE_BACK) {
-            if (!down) { movingPkg = null; recreate(); } // se descarta: build() vuelve a leer el orden guardado
+            if (!down) { movingPkg = null; refresh(); } // se descarta: build() vuelve a leer el orden guardado
             return true;
         }
         return false;
@@ -546,7 +576,7 @@ public class Launcher extends Activity {
         for (View c : dockCells) pkgs.add(String.valueOf(c.getTag()));
         movingPkg = null;
         // solo se guarda: las tarjetas ya estan en su lugar (moveStep las fue acomodando). Antes se llamaba a saveDock(),
-        // que hace recreate(), y la pantalla parpadeaba en negro en cada confirmacion.
+        // que rearmaba toda la pantalla (antes con recreate(): parpadeaba en negro en cada confirmacion).
         storeDock(pkgs);
         CharSequence name = dockName.getText();
         if (name != null && name.toString().startsWith("↔ ")) dockName.setText(name.toString().substring(2));
@@ -1153,7 +1183,7 @@ public class Launcher extends Activity {
         setContentView(root);
         final boolean coldStart = !introPlayed;   // primera pantalla de este proceso: recien encendida la caja o launcher reiniciado
         if (!introPlayed) {
-            introPlayed = true; // entrance animation: once per process, not on every recreate()
+            introPlayed = true; // entrance animation: once per process, not on every refresh()
             intro(head, -dp(24), 0);
             intro(pills, -dp(24), 120);
             band.setAlpha(0f);
@@ -1257,7 +1287,7 @@ public class Launcher extends Activity {
 
     private void saveDock(List<String> pkgs) {
         storeDock(pkgs);
-        recreate(); // no limit on apps: the dock scrolls sideways
+        refresh(); // no limit on apps: the dock scrolls sideways
     }
 
     /** Hides an app: out of the dock and into "Apps ocultas" (it is not uninstalled). */
@@ -1329,15 +1359,15 @@ public class Launcher extends Activity {
                         else if (it.startsWith("Reloj")) choose("Reloj", "clock_style", CLOCK_STYLE_NAMES, 0);
                         else if (it.startsWith("Animación")) {
                             prefs.edit().putBoolean("open_anim", !prefs.getBoolean("open_anim", true)).apply();
-                            recreate();
+                            refresh();
                         }
                         else if (it.startsWith("Brillo")) {
                             prefs.edit().putBoolean("glow", !glowOn).apply();
-                            recreate();
+                            refresh();
                         }
                         else if (it.startsWith("Respiración")) {
                             prefs.edit().putBoolean("breath", !breathOn).apply();
-                            recreate();
+                            refresh();
                         }
                         else if (it.startsWith("Fondo:")) showBackgroundChooser();
                         else if (it.startsWith("Oscurecer")) choose("Oscurecer fondo", "bg_dim", BG_DIM_NAMES, 2);
@@ -1355,7 +1385,7 @@ public class Launcher extends Activity {
                     @Override public void onClick(DialogInterface dlg, int which) {
                         prefs.edit().putInt(key, which).apply();
                         dlg.dismiss();
-                        recreate();
+                        refresh();
                     }
                 }).show();
     }
@@ -1424,7 +1454,7 @@ public class Launcher extends Activity {
             ed.remove("known"); // las apps de esta caja que no estan en el archivo se reubican solas al final del dock
             ed.apply();
             Toast.makeText(this, "Ajustes importados", Toast.LENGTH_SHORT).show();
-            recreate();
+            refresh();
         } catch (Exception ex) {
             Toast.makeText(this, "Archivo de ajustes no valido: " + ex.getMessage(), Toast.LENGTH_LONG).show();
         }
@@ -1439,11 +1469,11 @@ public class Launcher extends Activity {
             prefs.edit().putString("bg_file", in.getStringExtra("background")).apply();
             in.removeExtra("background");
             scroll.post(new Runnable() {
-                @Override public void run() { recreate(); }
+                @Override public void run() { refresh(); }
             });
         }
         if (!in.getBooleanExtra("import_settings", false)) return;
-        in.removeExtra("import_settings"); // recreate() reusa este intent: sin esto se importaria en bucle
+        in.removeExtra("import_settings"); // el intent queda guardado (getIntent): sin esto se importaria en cada onNewIntent
         scroll.post(new Runnable() {
             @Override public void run() { importSettings(); }
         });
