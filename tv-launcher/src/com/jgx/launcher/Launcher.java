@@ -505,6 +505,11 @@ public class Launcher extends Activity {
         if (hasFocus) {
             longHandled = false; // el "soltar OK" de un mantener-OK se lo queda el dialogo y no llega aca
             syncHighlight();
+            if (breathAnim == null && movingPkg == null && scroll != null) { // al volver de una app abierta con OK
+                View f = scroll.findFocus();
+                if (f != null && longActions.containsKey(f) && f instanceof LinearLayout && ((LinearLayout) f).getChildCount() > 0)
+                    startBreath(((LinearLayout) f).getChildAt(0));
+            }
         }
     }
 
@@ -605,51 +610,31 @@ public class Launcher extends Activity {
         hlShown = true;
     }
 
+    /**
+     * Boton de red: solo el icono (Wi-Fi o cable) cuando hay conexion, y "Sin red" con el icono apagado cuando no la hay.
+     * Antes mostraba nombre de la red y velocidad, pero ocupaba demasiado (con "Entradas" tapaba el reloj) y lo que importa
+     * es saber si esta conectado. El nombre ya no hace falta: no se pide ubicacion para leerlo.
+     */
     private void updateWifi() {
-        String name = null;
-        try {
-            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
-            WifiInfo info = wm.getConnectionInfo();
-            if (info != null && info.getNetworkId() != -1) {
-                name = info.getSSID();
-                if (name != null) name = name.replace("\"", "");
-                if ("<unknown ssid>".equals(name)) name = null;
-                // un nombre de red largo (22 letras en una TV BOX-3) empujaba la barra encima del reloj
-                if (name != null && name.length() > 10) name = name.substring(0, 9).trim() + "…";
-            }
-        } catch (Exception ignored) { }
-        int speed = -1;
-        try {
-            WifiInfo wi = ((WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE)).getConnectionInfo();
-            if (wi != null) speed = wi.getLinkSpeed();
-        } catch (Exception ignored) { }
-        boolean cable = false;
+        boolean cable = false, online = false;
         try {
             android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
             android.net.NetworkInfo ni = cm.getActiveNetworkInfo();
-            cable = ni != null && ni.isConnected() && ni.getType() == android.net.ConnectivityManager.TYPE_ETHERNET;
+            online = ni != null && ni.isConnected();
+            cable = online && ni.getType() == android.net.ConnectivityManager.TYPE_ETHERNET;
         } catch (Exception ignored) { }
-        String t;
-        if (cable) {
-            int eth = -1;
-            try { // velocidad del enlace; muchos kernels de TV box no exponen este archivo
-                java.io.BufferedReader br = new java.io.BufferedReader(new java.io.FileReader("/sys/class/net/eth0/speed"));
-                eth = Integer.parseInt(br.readLine().trim());
-                br.close();
-            } catch (Exception ignored) { }
-            t = "Cable" + (eth > 0 ? "  ·  " + eth + " Mbps" : "");
-        } else {
-            t = name != null ? "Wi-Fi  ·  " + name : "Wi-Fi";
-            if (speed > 0) t += "  ·  " + speed + " Mbps"; // sin permiso de ubicacion (Android 8.1+) no hay nombre, pero si velocidad
-        }
         netCable = cable;
-        wifiPill.setText(t);
-        wifiPill.setCompoundDrawables(cable ? icoEth : icoWifi, null, null, null);
+        android.graphics.drawable.Drawable ico = cable ? icoEth : icoWifi;
+        ico.setAlpha(online ? 255 : 90);
+        wifiPill.setText(online ? "" : "Sin red");
+        iconOnly(wifiPill, online);
+        wifiPill.setContentDescription(online ? (cable ? "Conectado por cable" : "Conectado por Wi-Fi") : "Sin red");
+        wifiPill.setCompoundDrawables(ico, null, null, null);
     }
 
     /** Iconos de las pastillas, dibujados por codigo (sin recursos): wifi, cable de red, engranaje, chip de RAM. */
     private static final class PillIcon extends Drawable {
-        static final int WIFI = 0, ETH = 1, GEAR = 2, CHIP = 3;
+        static final int WIFI = 0, ETH = 1, GEAR = 2, CHIP = 3, INPUT = 4;
         private final int kind;
         private final int size;
         private final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
@@ -689,14 +674,33 @@ public class Launcher extends Activity {
                 }
                 c.drawLine(s * 0.5f, s * 0.64f, s * 0.5f, s * 0.86f, p);
                 c.drawLine(s * 0.3f, s * 0.86f, s * 0.7f, s * 0.86f, p);
-            } else if (kind == GEAR) {
-                c.drawCircle(s * 0.5f, s * 0.5f, s * 0.26f, p);
+            } else if (kind == GEAR) { // engranaje relleno de 8 dientes con agujero al centro (el icono clasico de Configuracion)
+                android.graphics.Path g = new android.graphics.Path();
+                float cx = s * 0.5f, cy = s * 0.5f, rIn = s * 0.33f, rOut = s * 0.47f;
                 for (int i = 0; i < 8; i++) {
                     double a = Math.PI / 4 * i;
-                    float cs = (float) Math.cos(a), sn = (float) Math.sin(a);
-                    c.drawLine(s * 0.5f + cs * s * 0.34f, s * 0.5f + sn * s * 0.34f,
-                            s * 0.5f + cs * s * 0.45f, s * 0.5f + sn * s * 0.45f, p);
+                    double[] ang = {a - Math.toRadians(17), a - Math.toRadians(10), a + Math.toRadians(10), a + Math.toRadians(17)};
+                    float[] rad = {rIn, rOut, rOut, rIn};
+                    for (int k = 0; k < 4; k++) {
+                        float x = cx + (float) Math.cos(ang[k]) * rad[k], y = cy + (float) Math.sin(ang[k]) * rad[k];
+                        if (i == 0 && k == 0) g.moveTo(x, y); else g.lineTo(x, y);
+                    }
                 }
+                g.close();
+                g.addCircle(cx, cy, s * 0.14f, android.graphics.Path.Direction.CW);
+                g.setFillType(android.graphics.Path.FillType.EVEN_ODD);
+                p.setStyle(android.graphics.Paint.Style.FILL);
+                c.drawPath(g, p);
+            } else if (kind == INPUT) { // pantalla abierta a la izquierda con una flecha que entra (el icono clasico de "Entradas")
+                android.graphics.Path frame = new android.graphics.Path();
+                frame.moveTo(s * 0.38f, s * 0.2f);
+                frame.lineTo(s * 0.86f, s * 0.2f);
+                frame.lineTo(s * 0.86f, s * 0.8f);
+                frame.lineTo(s * 0.38f, s * 0.8f);
+                c.drawPath(frame, p);
+                c.drawLine(s * 0.1f, s * 0.5f, s * 0.62f, s * 0.5f, p);
+                c.drawLine(s * 0.46f, s * 0.36f, s * 0.62f, s * 0.5f, p);
+                c.drawLine(s * 0.46f, s * 0.64f, s * 0.62f, s * 0.5f, p);
             } else {
                 c.drawRoundRect(new android.graphics.RectF(s * 0.18f, s * 0.28f, s * 0.82f, s * 0.72f), s * 0.06f, s * 0.06f, p);
                 for (int i = 0; i < 4; i++) {
@@ -709,6 +713,41 @@ public class Launcher extends Activity {
     }
 
     private PillIcon pillIcon(int kind) { return new PillIcon(kind, dp(24)); }
+
+    private TextView inputsPillView;
+
+    /** Pastilla solo con icono: margen parejo a los dos lados (las de texto llevan 24/26 y espacio entre icono y texto). */
+    private void iconOnly(TextView t, boolean on) {
+        if (on) {
+            t.setPadding(dp(20), dp(12), dp(20), dp(12));
+            t.setCompoundDrawablePadding(0);
+        } else {
+            t.setPadding(dp(24), dp(12), dp(26), dp(12));
+            t.setCompoundDrawablePadding(dp(10));
+        }
+    }
+
+    /**
+     * Selector de entradas de la tele (el mismo que abria el boton del inicio de Google TV): la accion estandar
+     * com.android.tv.action.VIEW_INPUTS, que en la Motorola atiende la app TV de MediaTek (InputsPanelActivity). Solo si el
+     * aparato informa alguna entrada HDMI o de antena; en los TV box y en el Onn no hay, y el boton no aparece.
+     */
+    private Intent inputsIntent() {
+        try {
+            android.media.tv.TvInputManager tim = (android.media.tv.TvInputManager) getSystemService(TV_INPUT_SERVICE);
+            if (tim == null) return null;
+            boolean any = false;
+            for (android.media.tv.TvInputInfo ti : tim.getTvInputList()) {
+                int t = ti.getType();
+                if (ti.isPassthroughInput() || t == android.media.tv.TvInputInfo.TYPE_TUNER) { any = true; break; }
+            }
+            if (!any) return null;
+            Intent i = new Intent("com.android.tv.action.VIEW_INPUTS");
+            return getPackageManager().resolveActivity(i, 0) != null ? i : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
 
     /** Tema efectivo: el elegido, o (en Automatico) uno por franja horaria: amanecer, dia, atardecer, noche. */
     private int resolveTheme() {
@@ -1079,23 +1118,47 @@ public class Launcher extends Activity {
         icoEth = pillIcon(PillIcon.ETH);
         wifiPill = pill("Wi-Fi");
         wifiPill.setCompoundDrawables(icoWifi, null, null, null);
-        settingsPill = pill("Ajustes");
+        settingsPill = pill("");
         settingsPill.setCompoundDrawables(pillIcon(PillIcon.GEAR), null, null, null);
+        iconOnly(settingsPill, true);
+        settingsPill.setContentDescription("Ajustes");
         wifiPill.setId(View.generateViewId());
         settingsPill.setId(View.generateViewId());
-        final TextView ramPill = pill("Liberar RAM");
+        // Barra compacta: "Entradas" (solo en teles), "Liberar RAM" y la red van solo con su icono; "Ajustes" conserva el texto.
+        final Intent inputsIntent = inputsIntent();
+        final TextView inputsPill = inputsIntent == null ? null : pill("");
+        final TextView ramPill = pill("");
         ramPill.setCompoundDrawables(pillIcon(PillIcon.CHIP), null, null, null);
+        iconOnly(ramPill, true);
+        ramPill.setContentDescription("Liberar RAM");
+        if (inputsPill != null) {
+            iconOnly(inputsPill, true);
+            inputsPill.setContentDescription("Entradas");
+        }
         ramPill.setId(View.generateViewId());
-        ramPill.setNextFocusLeftId(ramPill.getId());
         ramPill.setNextFocusUpId(ramPill.getId());
         ramPill.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { freeRam(); }
         });
+        if (inputsPill != null) {
+            inputsPill.setCompoundDrawables(pillIcon(PillIcon.INPUT), null, null, null);
+            inputsPill.setId(View.generateViewId());
+            inputsPill.setNextFocusLeftId(inputsPill.getId());
+            inputsPill.setNextFocusUpId(inputsPill.getId());
+            inputsPill.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { start(inputsIntent); }
+            });
+            inputsPillView = inputsPill;
+        } else {
+            ramPill.setNextFocusLeftId(ramPill.getId());
+            inputsPillView = null;
+        }
         wifiPill.setNextFocusUpId(wifiPill.getId());
         settingsPill.setNextFocusRightId(settingsPill.getId());
         settingsPill.setNextFocusUpId(settingsPill.getId());
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-2, -2);
         gp.rightMargin = dp(16);
+        if (inputsPill != null) pills.addView(inputsPill, gp);
         pills.addView(ramPill, gp);
         pills.addView(wifiPill, gp);
         pills.addView(settingsPill);
@@ -1177,6 +1240,7 @@ public class Launcher extends Activity {
             dockCells.add(c);
         }
         ramPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(0).getId());
+        if (inputsPillView != null) inputsPillView.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(0).getId());
         wifiPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(0).getId());
         settingsPill.setNextFocusDownId(dockCells.isEmpty() ? View.NO_ID : dockCells.get(Math.min(dockCells.size() - 1, 3)).getId());
 
@@ -1700,7 +1764,11 @@ public class Launcher extends Activity {
         c.addView(img, new LinearLayout.LayoutParams(dp(tileW), dp(tileH)));
 
         c.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { launch(e, v); }
+            @Override public void onClick(final View v) {
+                press(img, new Runnable() {
+                    @Override public void run() { launch(e, v); }
+                });
+            }
         });
         longActions.put(c, new Runnable() {
             @Override public void run() { showMenu(e); }
@@ -1771,6 +1839,33 @@ public class Launcher extends Activity {
             }
         });
         breathAnim.start();
+    }
+
+    /**
+     * Respuesta inmediata al OK: la tarjeta (y el vidrio) se hunden un 8 % en 70 ms y ahi recien se abre la app; despues
+     * vuelven. Sin esto, una app que arranca en frio (~0.8 s en el Onn) daba la sensacion de que el OK no se habia tomado.
+     */
+    private void press(final View img, final Runnable then) {
+        stopBreath();
+        img.animate().cancel();
+        hl.animate().scaleX(0.95f).scaleY(0.95f).setDuration(70).start();
+        img.animate().scaleX(zoom * 0.92f).scaleY(zoom * 0.92f).setDuration(70)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(new Runnable() {
+                    @Override public void run() {
+                        then.run();
+                        hl.animate().scaleX(1f).scaleY(1f).setDuration(180).start();
+                        img.animate().scaleX(zoom).scaleY(zoom).setDuration(180)
+                                .setInterpolator(new OvershootInterpolator(2f))
+                                .withEndAction(new Runnable() {
+                                    @Override public void run() {
+                                        View cell = (View) img.getParent();
+                                        // con la app ya al frente no se arranca (gastaria CPU de fondo): vuelve en onWindowFocusChanged
+                                        if (cell != null && cell.hasFocus() && hasWindowFocus()) startBreath(img);
+                                    }
+                                }).start();
+                    }
+                }).start();
     }
 
     private void stopBreath() {

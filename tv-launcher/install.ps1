@@ -74,9 +74,6 @@ $res = (& $adb -s $s install -r "$PSScriptRoot\$dirBuild\launcher.apk") -join ' 
 Write-Host $res
 if ($res -notmatch 'Success') { throw "No se pudo instalar el launcher ($res). Si dice INSTALL_FAILED_UPDATE_INCOMPATIBLE, la caja tiene otro build firmado con otra clave: desinstala com.jgx.launcher primero." }
 & $adb -s $s shell cmd package set-home-activity "$nuestro/.Launcher"
-if ($usarModerno) {   # desde Android 8.1 el nombre del Wi-Fi solo se lee con permiso de ubicacion; se concede por ADB (sin cartel en la tele)
-    & $adb -s $s shell pm grant $nuestro android.permission.ACCESS_FINE_LOCATION
-}
 
 $cand = Mostrar-Candidatos
 $objetivo = $LauncherOriginal

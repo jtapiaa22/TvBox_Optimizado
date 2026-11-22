@@ -34,8 +34,7 @@ La **moderna** (`AndroidManifest-moderno.xml`, target 34) existe porque en Andro
 el cartel *"Esta app se compiló para una versión anterior de Android"* (visto en un Onn Google TV con Android 14). Ese target obliga a:
 - **ver las demás apps**: `<queries>` para `LAUNCHER`/`LEANBACK_LAUNCHER` y `QUERY_ALL_PACKAGES` (Android 11+; sin eso el dock sale vacío);
 - **receptor de paquetes con bandera**: en Android 13+ `registerReceiver(..., RECEIVER_EXPORTED)` (el código lo elige por `SDK_INT`);
-- **ubicación para el nombre del Wi-Fi** (Android 8.1+): `install.ps1` concede `ACCESS_FINE_LOCATION` por ADB, sin cartel. Si la
-  ubicación del aparato está apagada, igual no hay nombre: la barra muestra `Wi-Fi · <velocidad>` (en las dos variantes).
+- (ya no hace falta ubicación: la barra no muestra el nombre del Wi-Fi, solo si hay conexión).
 
 `.\build.ps1` → `build\launcher.apk` (clásica); `.\build.ps1 -Moderno` → `build-moderno\launcher.apk`. `install.ps1 <ip>` mira
 `ro.build.version.sdk` de la caja y elige sola (SDK 28 o más = moderna); se fuerza con `-Clasico` o `-Moderno`. Las dos se firman con la
@@ -149,6 +148,8 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
     bucle (1.6 s de ida y 1.6 s de vuelta, `AccelerateDecelerate`) y el vidrio late de brillo (alpha 0.8–1). Arranca 300 ms después del
     foco para no pelear con el zoom y el resorte; se corta al cambiar de tarjeta y en el modo Mover, y se pausa con otra app al frente.
     Constantes `BREATH_AMP` y `BREATH_MS`. Medido en el Onn: el borde del vidrio se mueve ~5 px por lado.
+  - Al tocar OK la tarjeta y el vidrio se hunden (8 % y 5 %, 70 ms) y recién ahí se abre la app; vuelven con un rebote. Así se nota
+    que tomó el OK aunque la app tarde en arrancar en frío (~0.8 s). Al volver al inicio la respiración arranca de nuevo.
   - Un valor guardado fuera de rango (archivo editado a mano) cae al valor por defecto (`pref()`).
 - **Exportar ajustes** escribe `launcher-settings.json` en la carpeta externa propia de la app
   (`/sdcard/Android/data/com.jgx.launcher/files/`; no pide permisos y `adb pull/push` llega hasta ahí). Solo viajan
@@ -180,9 +181,14 @@ celular). `start()` reintenta el intent con `setPackage("com.android.tv.settings
 ## Barra superior
 - RAM: `pages free + nr_inactive_file` de **`/proc/zoneinfo`** (todas las zonas, páginas de 4 KB), sin mostrar total. Hay cajas baratas que falsean `/proc/meminfo`, `Cached` y `ActivityManager` (la MXQ Pro 5G dice 4 GB y tiene 1 GB; la MBOX dice 8 GB y mostraba 5.5 GB "libres") pero dejan `/proc/zoneinfo` intacto: en la MBOX pasó de 5.5 GB a 304 MB, igual a la cuenta a mano. Si `zoneinfo` no se puede leer, vuelve a `MemFree + Inactive(file)` (o `MemAvailable`) de `/proc/meminfo`. Se refresca cada 5 s solo mientras el launcher está
   en primer plano. Sin red.
-- Red: SSID y `getLinkSpeed()` de `WifiManager` (permiso `ACCESS_WIFI_STATE`). Si `getActiveNetworkInfo()` es
-  Ethernet (permiso `ACCESS_NETWORK_STATE`) muestra "Cable" y, si existe `/sys/class/net/eth0/speed`, la velocidad.
-  La rama de cable **no se ha probado en una caja real** (la MXQ Pro 5G usa Wi-Fi).
+- **Barra compacta (solo íconos)**: Entradas (solo en teles), Liberar RAM, red y Ajustes son círculos con su ícono dibujado por código
+  (`PillIcon`: INPUT, CHIP, WIFI/ETH, GEAR = engranaje relleno de 8 dientes con agujero, como el de Configuración). Con nombre de red,
+  velocidad y "Entradas" con texto, la barra tapaba el reloj en la Motorola.
+- Red: solo el estado, de `getActiveNetworkInfo()` (permiso `ACCESS_NETWORK_STATE`): ícono Wi-Fi o cable si hay conexión; si no,
+  el ícono atenuado y el texto "Sin red". El clic abre los ajustes de Wi-Fi (o los generales con cable).
+- **Entradas** (HDMI / antena): aparece solo si `TvInputManager` informa una entrada passthrough o de sintonizador y alguna app resuelve
+  `com.android.tv.action.VIEW_INPUTS` (el selector que abría el inicio de Google TV). En la Motorola lo atiende la app TV de MediaTek
+  (`InputsPanelActivity`, 2 HDMI + antena); en los TV box y el Onn no hay entradas y el botón no se muestra.
 - Temperatura: se intenta leer `/sys/class/thermal/thermal_zone0/temp`; en la MXQ Pro 5G no es legible y no se
   muestra nada. En otras cajas puede aparecer.
 - **Liberar RAM**: `killBackgroundProcesses` sobre todos los paquetes instalados excepto el propio (permiso

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Variante para aparatos nuevos (Android 9+, probado en un Onn Google TV con Android 14). Mismo codigo que AndroidManifest.xml;
      cambia el target (sin el cartel de "app para una version anterior de Android") y lo que ese target exige:
-     ver las demas apps (<queries> / QUERY_ALL_PACKAGES, desde Android 11) y ubicacion para leer el nombre del Wi-Fi (desde 8.1). -->
+     ver las demas apps (<queries> / QUERY_ALL_PACKAGES, desde Android 11). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.jgx.launcher">
 
@@ -10,8 +10,6 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <queries>
         <intent>
