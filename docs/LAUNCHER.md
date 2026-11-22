@@ -109,7 +109,7 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
   al primer tile): intercambia a su vecina del lado opuesto, con el mismo resultado; el vidrio la sigue con su resorte.
   `onWindowFocusChanged` limpia `longHandled`: el "soltar OK" de un mantener-OK se lo queda el diálogo y dejaba el
   indicador pegado, tragándose el siguiente clic.
-- "Ocultar" saca la app del dock y la guarda en `hidden`; no la desinstala. Para recuperarla: "Personalizar
+- "Ocultar" saca la app del dock y la guarda en `hidden`; no la desinstala. El foco queda en la vecina (la siguiente; si era la última, la anterior), según el orden que se ve en el dock: se guarda como `last` antes de rearmar. Para recuperarla: "Personalizar
   launcher…" > "Apps ocultas…" (aparece solo si hay alguna), que devuelve una (o "Mostrar todas") al principio del dock.
 - `build()` descarta del dock las apps que ya no existen o están desactivadas; sin esto quedaban anotadas en la
   lista guardada, ocupando una posición invisible (el primer tile ofrecía "Mover a la izquierda" sin tener nada a la izquierda).

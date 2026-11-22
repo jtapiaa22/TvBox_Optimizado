@@ -1397,7 +1397,14 @@ public class Launcher extends Activity {
     private void hideApp(String pkg) {
         Set<String> h = new HashSet<>(prefs.getStringSet("hidden", new HashSet<String>()));
         h.add(pkg);
-        prefs.edit().putStringSet("hidden", h).apply();
+        // el foco queda en la vecina (la siguiente; si era la ultima, la anterior) en el orden en que se VE el dock,
+        // en vez de volver al principio: build() enfoca "last" y la app ocultada ya no esta
+        int i = -1;
+        for (int n = 0; n < dockCells.size(); n++) if (pkg.equals(dockCells.get(n).getTag())) i = n;
+        int j = i + 1 < dockCells.size() ? i + 1 : i - 1;
+        SharedPreferences.Editor ed = prefs.edit().putStringSet("hidden", h);
+        if (i >= 0 && j >= 0) ed.putString("last", String.valueOf(dockCells.get(j).getTag()));
+        ed.apply();
         List<String> dl = dockPkgs();
         dl.remove(pkg);
         saveDock(dl);
