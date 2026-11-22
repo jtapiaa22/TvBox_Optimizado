@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- "Desinstalar" del menu: desde target 28 el desinstalador de Android se cierra solo sin este permiso
+         ("Uid ... does not have android.permission.REQUEST_DELETE_PACKAGES", visto en la Motorola) -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <queries>
         <intent>

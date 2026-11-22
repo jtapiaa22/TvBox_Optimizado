@@ -1720,7 +1720,11 @@ public class Launcher extends Activity {
         if (dl.size() > 1) items.add("Ocultar");
         items.add("Personalizar launcher…");
         items.add("Información de la app");
-        items.add("Desinstalar");
+        boolean system = true; // las apps del sistema no se pueden desinstalar: la opcion ni aparece
+        try {
+            system = (getPackageManager().getApplicationInfo(e.pkg, 0).flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+        } catch (PackageManager.NameNotFoundException ignored) { }
+        if (!system) items.add("Desinstalar");
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                 .setTitle(e.label)
                 .setItems(items.toArray(new String[0]), new DialogInterface.OnClickListener() {
@@ -1735,17 +1739,19 @@ public class Launcher extends Activity {
                             showLauncherMenu();
                         } else if (it.startsWith("Informaci")) {
                             start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri));
-                        } else {
-                            try {
-                                boolean sys = (getPackageManager().getApplicationInfo(e.pkg, 0).flags
-                                        & ApplicationInfo.FLAG_SYSTEM) != 0;
-                                if (sys) {
-                                    Toast.makeText(Launcher.this, "App del sistema: no se puede desinstalar",
-                                            Toast.LENGTH_LONG).show();
-                                } else {
-                                    start(new Intent(Intent.ACTION_DELETE, uri));
+                        } else if (it.equals("Desinstalar")) {
+                            // abre el "¿Desinstalar esta app?" de Android; al confirmar, PACKAGE_REMOVED rearma el dock solo
+                            Intent del = new Intent(Intent.ACTION_DELETE, uri);
+                            if (getPackageManager().resolveActivity(del, 0) == null) {
+                                Toast.makeText(Launcher.this, "Este aparato no permite desinstalar desde el launcher",
+                                        Toast.LENGTH_LONG).show();
+                            } else {
+                                try {
+                                    startActivity(del); // sin start(): ahi se tragaba cualquier error y no pasaba nada
+                                } catch (RuntimeException ex) {
+                                    Toast.makeText(Launcher.this, "No se pudo abrir el desinstalador", Toast.LENGTH_LONG).show();
                                 }
-                            } catch (PackageManager.NameNotFoundException ignored) { }
+                            }
                         }
                     }
                 }).show();

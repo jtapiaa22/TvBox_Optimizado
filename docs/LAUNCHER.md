@@ -98,7 +98,11 @@ tras eso y un reinicio arrancó directo en el nuestro, sin cartel.
   ancho. El scroll deja 34 dp de aire a cada lado del tile enfocado (`computeScrollDeltaToGetChildRectOnScreen`
   con el rectángulo ampliado) para que el vidrio quede dentro de la banda.
 - Menú al **mantener OK** sobre una app: "Mover", "Ocultar", "Personalizar launcher…",
-  "Información de la app" y "Desinstalar". Las apps del sistema no se desinstalan (solo avisa).
+  "Información de la app" y "Desinstalar". **"Desinstalar" solo aparece en apps que no son del sistema** y abre el
+  "¿Quieres desinstalar esta aplicación?" de Android; al confirmar, `PACKAGE_REMOVED` rearma el dock (`refresh()`).
+  En la variante moderna hace falta `REQUEST_DELETE_PACKAGES`: sin él el desinstalador se cerraba solo
+  ("Uid ... does not have android.permission.REQUEST_DELETE_PACKAGES") y no pasaba nada. Probado en la Motorola con
+  una app de prueba vacía (`com.jgx.pruebaborrar`): diálogo, desinstalación y dock rearmado sin errores.
 - **Modo Mover** (solo con orden Manual): "Mover" agarra la app (el nombre grande pasa a "↔ nombre"); con ◀ ▶ se la lleva
   al lugar elegido, OK confirma y se guarda, Atrás o Inicio cancelan (se vuelve al orden guardado). Arriba/abajo se
   ignoran mientras tanto. `moveStep` no saca la vista enfocada para reubicarla (el foco se perdería y Android lo mandaría
