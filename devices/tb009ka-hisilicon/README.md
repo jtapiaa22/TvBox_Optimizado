@@ -32,4 +32,7 @@ dm-verity activo. `limpiar-apps-desactivadas.ps1` hizo el respaldo y se detuvo a
 
 ## Pendiente
 - Cerrar ADB al terminar (Depuración USB/red apagada y reinicio; el puerto 3222 debe rechazar).
-- No se probó la corrección H.264 (es para el `libstagefright` del RK322x).
+- **Corrección H.264: no hace falta.** `CodecInfo` (tools/correccion-calidad-h264): `OMX.hivendor.video.decoder.avc` anuncia High
+  hasta `8:8000` (5.1) y 1080p@30; el corte en `8:1` era de Android 7. Ojo: el HEVC por hardware informa tamaños de 128 a 288 px y
+  el de software no llega a 1080p, así que contenido H.265 podría no verse en HD (no se probó en una app).
+- Instalados Downloader 1.5.1 (`config.xhdpi`) y TizenTube 2.0.2 (hash verificado) con los instaladores del repo y `-Port 3222`.
