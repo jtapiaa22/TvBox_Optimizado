@@ -3,7 +3,7 @@
 Caja genérica. El fingerprint dice `google/walley/eros-p1:10/D9PRO5G ... userdebug/test-keys` y `getprop` dice Android 12.1,
 pero `ro.build.version.sdk` = 28 (Android 9). 1 GB de RAM, 1920×1080 a 320 dpi, `armeabi-v7a`, `ro.adb.secure` vacío.
 **ADB por Wi-Fi en el puerto 3222**, no el 5555 (aparece por `adb mdns services`). `adb root`/`remount` funcionan (userdebug).
-`install.ps1` trae `:5555` fijo: en esta caja se instaló con `adb install -r` a mano.
+`install.ps1` traía `:5555` fijo (en esta caja se instaló a mano); ahora acepta `-Port 3222`.
 
 ## Lo que se encontró
 - **`com.lz.sysplugin` 2.125**: app de sistema (uid `system`) con `INSTALL_PACKAGES`/`DELETE_PACKAGES`, empaquetada con libjiagu

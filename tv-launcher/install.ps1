@@ -25,7 +25,8 @@ param(
     [string]$Ajustes = "",
     [string[]]$Fondo = @(),
     [switch]$Moderno,     # fuerza la variante para Android 9+ (target 34); sin -Moderno ni -Clasico se elige sola por el SDK de la caja
-    [switch]$Clasico      # fuerza la variante de siempre (target 25), la de las cajas con Android 7
+    [switch]$Clasico,     # fuerza la variante de siempre (target 25), la de las cajas con Android 7
+    [int]$Port = 5555     # puerto ADB por Wi-Fi: las cajas HiSilicon (D9 Pro, TB009KA) usan 3222
 )
 $nuestro = 'com.jgx.launcher'
 # Paquetes que responden a HOME pero NO son un launcher que reemplazar (respaldo del sistema mientras no hay Home)
@@ -36,7 +37,7 @@ $adb = @("$env:ANDROID_HOME\platform-tools\adb.exe", "$env:ANDROID_SDK_ROOT\plat
     Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $adb) { $c = Get-Command adb -ErrorAction SilentlyContinue; if ($c) { $adb = $c.Source } }
 if (-not $adb) { throw "No encuentro adb. Instala las platform-tools del Android SDK o ponlas en el PATH." }
-$s = "${Tv}:5555"
+$s = "${Tv}:$Port"
 
 # Paquetes que responden a HOME (salida de `cmd package query-activities`: lineas "packageName=<paquete>")
 function Get-PaquetesHome([string]$texto) {
