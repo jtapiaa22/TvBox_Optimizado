@@ -36,3 +36,8 @@ dm-verity activo. `limpiar-apps-desactivadas.ps1` hizo el respaldo y se detuvo a
   hasta `8:8000` (5.1) y 1080p@30; el corte en `8:1` era de Android 7. Ojo: el HEVC por hardware informa tamaños de 128 a 288 px y
   el de software no llega a 1080p, así que contenido H.265 podría no verse en HD (no se probó en una app).
 - Instalados Downloader 1.5.1 (`config.xhdpi`) y TizenTube 2.0.2 (hash verificado) con los instaladores del repo y `-Port 3222`.
+
+## Segunda unidad (2026-11-23)
+Otra TB009KA idéntica (mismo fingerprint): `SysPlugin`, la "tienda", Play Store y Play Services con **los mismos SHA-256** que la primera.
+Se aplicó lo mismo (incluido Downloader 1.5.1 y TizenTube 2.0.2) y `install.ps1 <ip> -Port 3222 -LauncherOriginal com.droidlogic.mboxlauncher`.
+Tras reiniciar: arranca en el launcher propio, las 15 siguen desactivadas, sin procesos del agente; conexiones solo de Google Play y ADB.
